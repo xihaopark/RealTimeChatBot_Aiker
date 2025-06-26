@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-VTX AI Phone System - 主程序集成 (增强版)
-集成新的AI提供商和流式引擎
+VTX AI Phone System v2.0 - 增强版主程序
+Aiker - OneSuite 商业客服机器人
 """
 
 import sys
@@ -20,17 +20,17 @@ from src.sip import SIPClient
 from src.sdp import SDPParser
 from src.rtp import RTPHandler
 from src.audio import AudioGenerator
-
-# 新增的AI组件导入
-from src.ai.providers.deepgram_provider import DeepgramSTTProvider, DeepgramConfig
-from src.ai.providers.elevenlabs_provider import ElevenLabsTTSProvider, ElevenLabsConfig
-from src.ai.enhanced.streaming_stt import StreamingSTTEngine, StreamingSTTConfig, STTProvider
+from src.audio.welcome_messages import welcome_messages
 from src.utils.api_manager import api_manager
-from src.utils.performance_monitor import performance_monitor
+from src.ai.enhanced.streaming_stt import StreamingSTTEngine
+from src.ai.providers.deepgram_provider import DeepgramSTTProvider
+from src.ai.providers.elevenlabs_provider import ElevenLabsTTSProvider
+from src.utils.audio_utils import AudioUtils
+from src.utils.performance_monitor import PerformanceMonitor
 
 
-class EnhancedVTXAIPhoneSystem:
-    """增强版 VTX AI 电话系统"""
+class AikerPhoneSystem:
+    """Aiker - OneSuite 商业客服机器人电话系统"""
     
     def __init__(self):
         # 获取配置
@@ -47,13 +47,15 @@ class EnhancedVTXAIPhoneSystem:
             password=ext.password
         )
         
-        # AI 组件配置
-        self.ai_enabled = True
+        # AI 组件
+        self.stt_engine = None
+        self.tts_provider = None
+        self.performance_monitor = PerformanceMonitor()
         self.current_rtp_handler = None
+        self.current_call = None
         
-        # 初始化AI组件
-        if self.ai_enabled:
-            self._init_enhanced_ai()
+        # 初始化 AI 组件
+        self._init_ai_components()
         
         # 设置信号处理
         signal.signal(signal.SIGINT, self._signal_handler)
@@ -61,82 +63,46 @@ class EnhancedVTXAIPhoneSystem:
         
         self.running = False
         
-        print("🎯 增强版 VTX AI 电话系统")
+        print("🎯 Aiker - OneSuite 商业客服机器人")
         print(f"服务器: {settings.vtx.server}:{settings.vtx.port}")
         print(f"域名: {settings.vtx.domain}")
         print(f"DID: {settings.vtx.did_number}")
         print(f"分机: {ext.username}")
-        print(f"AI: {'增强模式' if self.ai_enabled else '禁用'}")
+        print(f"AI: 增强版（Deepgram + ElevenLabs）")
         print("-" * 50)
     
-    def _init_enhanced_ai(self):
-        """初始化增强AI组件"""
+    def _init_ai_components(self):
+        """初始化 AI 组件"""
         print("🤖 初始化增强AI组件...")
         
-        try:
-            # 1. 检查API密钥
-            missing_services = api_manager.get_missing_services()
-            if missing_services:
-                print(f"⚠️ 缺少API密钥: {', '.join(missing_services)}")
-                print("   部分AI功能可能无法使用")
-            
-            # 2. 初始化Deepgram STT
-            if api_manager.has_key('deepgram'):
-                deepgram_config = DeepgramConfig(
-                    model="nova-2",
-                    language="zh-CN",
-                    interim_results=True,
-                    endpointing=300
-                )
-                self.deepgram_provider = DeepgramSTTProvider(deepgram_config)
-                print("✅ Deepgram STT 提供商已初始化")
-            else:
-                self.deepgram_provider = None
-                print("⚠️ Deepgram STT 不可用（缺少API密钥）")
-            
-            # 3. 初始化ElevenLabs TTS
-            if api_manager.has_key('elevenlabs'):
-                elevenlabs_config = ElevenLabsConfig(
-                    voice_name="Rachel",
-                    model_id="eleven_multilingual_v2",
-                    stability=0.5,
-                    similarity_boost=0.8
-                )
-                self.elevenlabs_provider = ElevenLabsTTSProvider(elevenlabs_config)
-                print("✅ ElevenLabs TTS 提供商已初始化")
-            else:
-                self.elevenlabs_provider = None
-                print("⚠️ ElevenLabs TTS 不可用（缺少API密钥）")
-            
-            # 4. 初始化流式STT引擎
-            streaming_config = StreamingSTTConfig(
-                primary_provider=STTProvider.DEEPGRAM if self.deepgram_provider else STTProvider.WHISPER_LOCAL,
-                fallback_provider=STTProvider.WHISPER_LOCAL,
-                auto_fallback=True,
-                target_latency=0.8
-            )
-            self.streaming_stt_engine = StreamingSTTEngine(streaming_config)
-            
-            # 设置回调
-            self.streaming_stt_engine.set_transcript_callback(self._on_transcript)
-            self.streaming_stt_engine.set_error_callback(self._on_ai_error)
-            
-            if self.elevenlabs_provider:
-                self.elevenlabs_provider.set_audio_callback(self._on_tts_audio_ready)
-                self.elevenlabs_provider.set_error_callback(self._on_ai_error)
-            
-            print("✅ 增强AI组件初始化完成")
-            
-        except Exception as e:
-            print(f"❌ AI组件初始化失败: {e}")
-            self.ai_enabled = False
+        # 检查API密钥
+        available_services = api_manager.get_available_services()
+        print(f"✅ 可用服务: {', '.join(available_services)}")
+        
+        # 初始化STT引擎
+        if 'deepgram' in available_services:
+            self.stt_engine = StreamingSTTEngine()
+            print("✅ 流式STT引擎初始化完成")
+        else:
+            print("❌ Deepgram API密钥不可用")
+            raise ValueError("Deepgram API密钥不可用")
+        
+        # 初始化TTS提供商
+        if 'elevenlabs' in available_services:
+            self.tts_provider = ElevenLabsTTSProvider()
+            print("✅ ElevenLabs TTS初始化完成")
+        else:
+            print("❌ ElevenLabs API密钥不可用")
+            raise ValueError("ElevenLabs API密钥不可用")
+        
+        print("✅ 增强AI组件初始化完成")
     
     def _signal_handler(self, signum, frame):
         """信号处理"""
         print(f"\n收到信号 {signum}，准备退出...")
         self.running = False
     
-    async def start(self):
+    def start(self):
         """启动系统"""
         # 设置来电处理
         self.sip_client.set_incoming_call_handler(self._handle_incoming_call)
@@ -146,11 +112,7 @@ class EnhancedVTXAIPhoneSystem:
             print("❌ 系统启动失败")
             return False
         
-        # 启动增强AI组件
-        if self.ai_enabled and self.streaming_stt_engine:
-            await self.streaming_stt_engine.start()
-        
-        print("\n✅ 增强系统启动成功")
+        print("\n✅ 系统启动成功")
         print(f"📞 等待来电: {settings.vtx.did_number}")
         print("🤖 AI模式: 增强版（Deepgram + ElevenLabs）")
         print("按 Ctrl+C 退出...\n")
@@ -160,37 +122,32 @@ class EnhancedVTXAIPhoneSystem:
         # 主循环
         try:
             while self.running:
-                await asyncio.sleep(1)
+                time.sleep(1)
         except KeyboardInterrupt:
             pass
         
         # 停止系统
-        await self.stop()
+        self.stop()
         
         return True
     
-    async def stop(self):
+    def stop(self):
         """停止系统"""
-        print("\n🛑 停止增强系统...")
+        print("\n🛑 停止系统...")
         
-        # 停止AI组件
-        if self.streaming_stt_engine:
-            await self.streaming_stt_engine.stop()
+        # 停止STT引擎
+        if self.stt_engine:
+            asyncio.run(self.stt_engine.stop())
         
         # 停止 SIP
         self.sip_client.stop()
         
-        # 打印性能报告
-        performance_monitor.print_performance_report()
-        
-        print("✅ 增强系统已停止")
+        print("✅ 系统已停止")
     
     def _handle_incoming_call(self, call, request):
         """处理来电"""
         print(f"\n📞 来电: {call.call_id}")
-        
-        # 记录开始时间（性能监控）
-        call_start_time = time.time()
+        self.current_call = call
         
         # 提取来电信息
         from_header = request.get_header('From')
@@ -224,8 +181,7 @@ class EnhancedVTXAIPhoneSystem:
                 self.current_rtp_handler = rtp_handler
                 
                 # 设置 RTP 音频接收回调
-                if self.ai_enabled:
-                    rtp_handler.set_audio_callback(self._on_rtp_audio_received)
+                rtp_handler.set_audio_callback(self._on_rtp_audio_received)
                 
                 # 构建响应 SDP
                 response_sdp = SDPParser.build(
@@ -245,147 +201,198 @@ class EnhancedVTXAIPhoneSystem:
                 # 启动 RTP
                 rtp_handler.start(remote_ip, remote_port)
                 
-                # 记录响应时间
-                response_time = time.time() - call_start_time
-                performance_monitor.record_response_time(response_time)
+                # 播放本地欢迎语（快速响应）
+                self._play_local_welcome()
                 
-                if self.ai_enabled:
-                    # AI 模式：播放增强欢迎语
-                    asyncio.create_task(self._play_enhanced_welcome())
-                else:
-                    # 测试模式：发送测试音频
-                    self._send_test_audio(rtp_handler)
+                # 启动STT引擎
+                asyncio.create_task(self._start_stt_processing())
+                
             else:
                 print("⚠️ 无法解析 RTP 信息")
-                self._send_busy_response(request, call)
+                # 发送忙音
+                time.sleep(2)
+                self.sip_client._send_response(
+                    request, 486, "Busy Here",
+                    to_tag=call.local_tag
+                )
         else:
             print("⚠️ 没有 SDP")
-            self._send_busy_response(request, call)
+            # 发送忙音
+            time.sleep(2)
+            self.sip_client._send_response(
+                request, 486, "Busy Here",
+                to_tag=call.local_tag
+            )
     
-    def _send_busy_response(self, request, call):
-        """发送忙音响应"""
-        time.sleep(2)
-        self.sip_client._send_response(
-            request, 486, "Busy Here",
-            to_tag=call.local_tag
-        )
+    async def _start_stt_processing(self):
+        """启动STT处理"""
+        try:
+            if self.stt_engine:
+                await self.stt_engine.start()
+                print("✅ STT引擎启动成功")
+                
+                # 设置回调
+                self.stt_engine.set_transcript_callback(self._on_transcription)
+            
+        except Exception as e:
+            print(f"❌ STT引擎启动失败: {e}")
     
-    async def _play_enhanced_welcome(self):
-        """播放增强欢迎语"""
-        welcome_text = "您好，我是增强版AI助手，搭载了最新的语音识别和合成技术。请问有什么可以帮助您的？"
+    def _play_local_welcome(self):
+        """播放本地欢迎语（快速响应）"""
+        print("🔊 播放本地欢迎语...")
         
-        # 使用ElevenLabs合成（如果可用）
-        if self.elevenlabs_provider:
-            print(f"🔊 使用ElevenLabs合成欢迎语...")
-            try:
-                async with self.elevenlabs_provider as provider:
-                    await provider.synthesize(welcome_text)
-            except Exception as e:
-                print(f"❌ ElevenLabs合成失败: {e}")
-                # 回退到传统欢迎方式
-                self._send_test_audio(self.current_rtp_handler)
+        # 获取本地欢迎语音频
+        welcome_audio = welcome_messages.get_welcome_audio_ulaw()
+        
+        if welcome_audio:
+            # 直接发送音频包
+            self._send_audio_packets(welcome_audio)
+            print("✅ 本地欢迎语播放完成")
         else:
-            print("🔊 使用传统音频欢迎...")
-            self._send_test_audio(self.current_rtp_handler)
+            print("❌ 本地欢迎语音频不可用，使用TTS合成")
+            # 回退到TTS合成
+            self._play_welcome_message()
     
-    def _on_rtp_audio_received(self, audio_data: bytes):
-        """RTP 音频接收回调"""
-        # 将音频传递给增强STT引擎
-        if self.streaming_stt_engine and self.ai_enabled:
-            self.streaming_stt_engine.add_audio(audio_data)
-    
-    def _on_transcript(self, text: str, is_final: bool):
-        """语音识别结果回调"""
-        if is_final:
-            print(f"👤 用户说（最终）: {text}")
-            # TODO: 传递给LLM处理
-            asyncio.create_task(self._process_user_input(text))
-        else:
-            print(f"👤 用户说（中间）: {text}")
-    
-    async def _process_user_input(self, text: str):
-        """处理用户输入"""
-        # 简单的AI回复逻辑（待实现完整LLM集成）
-        ai_response = f"我听到您说：{text}。这是一个测试回复。"
+    def _play_welcome_message(self):
+        """播放TTS欢迎语（备用方案）"""
+        welcome_text = "您好，我是Aiker，OneSuite的商业客服助手。很高兴为您服务，请问有什么可以帮助您的吗？"
         
-        print(f"🤖 AI 回复: {ai_response}")
+        print(f"🔊 播放TTS欢迎语: {welcome_text}")
         
-        # 使用ElevenLabs合成回复
-        if self.elevenlabs_provider:
-            try:
-                async with self.elevenlabs_provider as provider:
-                    await provider.synthesize(ai_response)
-            except Exception as e:
-                print(f"❌ 合成回复失败: {e}")
+        # 异步合成和播放
+        asyncio.create_task(self._synthesize_and_play(welcome_text))
     
-    def _on_tts_audio_ready(self, audio_data: bytes, text: str):
-        """TTS音频就绪回调"""
-        print(f"🔊 音频合成完成: {len(audio_data)} 字节")
-        
-        # 通过 RTP 发送音频（需要格式转换）
-        if self.current_rtp_handler:
-            # TODO: 将MP3转换为μ-law格式
-            # 暂时使用原始数据（需要改进）
-            try:
-                # 简单分包发送
-                packet_size = 160
-                for i in range(0, len(audio_data), packet_size):
-                    packet = audio_data[i:i+packet_size]
-                    if len(packet) < packet_size:
-                        packet += b'\xFF' * (packet_size - len(packet))
+    async def _synthesize_and_play(self, text: str):
+        """合成并播放音频"""
+        try:
+            if self.tts_provider:
+                # 合成音频
+                audio_data = await self.tts_provider.synthesize(text)
+                
+                if audio_data:
+                    # 转换为μ-law格式
+                    ulaw_audio = AudioUtils.ulaw_encode(audio_data)
                     
-                    self.current_rtp_handler.send_audio(packet, payload_type=0)
-                    time.sleep(0.02)  # 20ms间隔
-                    
-            except Exception as e:
-                print(f"❌ 音频发送失败: {e}")
+                    # 通过RTP发送
+                    if self.current_rtp_handler:
+                        self._send_audio_packets(ulaw_audio)
+                        print(f"✅ 音频播放完成: {len(audio_data)} 字节")
+                    else:
+                        print("❌ RTP处理器不可用")
+                else:
+                    print("❌ 音频合成失败")
+            else:
+                print("❌ TTS提供商不可用")
+                
+        except Exception as e:
+            print(f"❌ 音频处理失败: {e}")
     
-    def _on_ai_error(self, error: str):
-        """AI错误回调"""
-        print(f"❌ AI错误: {error}")
-        performance_monitor.record_error()
-    
-    def _send_test_audio(self, rtp_handler):
-        """发送测试音频（传统模式）"""
-        print("🎵 发送测试音频: 1871")
-        
-        # 生成测试音频
-        test_audio = AudioGenerator.generate_test_pattern_1871()
-        print(f"   音频长度: {len(test_audio)} 字节")
+    def _send_audio_packets(self, audio_data: bytes):
+        """发送音频包"""
+        if not self.current_rtp_handler:
+            return
         
         # 分包发送
         packet_size = 160  # 20ms @ 8kHz
-        for i in range(0, len(test_audio), packet_size):
-            packet = test_audio[i:i+packet_size]
+        packets_sent = 0
+        
+        for i in range(0, len(audio_data), packet_size):
+            packet = audio_data[i:i+packet_size]
+            
+            # 确保包大小正确
             if len(packet) < packet_size:
                 packet += b'\xFF' * (packet_size - len(packet))
             
-            rtp_handler.send_audio(packet, payload_type=0)
+            self.current_rtp_handler.send_audio(packet, payload_type=0)
+            packets_sent += 1
+            
             time.sleep(0.02)  # 20ms
         
-        print(f"✅ 测试音频发送完成")
+        print(f"📦 音频包发送完成: {packets_sent} 个包")
+    
+    def _on_rtp_audio_received(self, audio_data: bytes):
+        """RTP 音频接收回调"""
+        # 将音频传递给STT引擎
+        if self.stt_engine:
+            self.stt_engine.add_audio(audio_data)
+    
+    def _on_transcription(self, text: str, is_final: bool = False):
+        """语音识别结果回调"""
+        if is_final:
+            print(f"👤 用户说（最终）: {text}")
+            # 生成AI回复
+            asyncio.create_task(self._generate_ai_response(text))
+        else:
+            print(f"👤 用户说（中间）: {text}")
+    
+    async def _generate_ai_response(self, user_text: str):
+        """生成AI回复"""
+        try:
+            # 构建OneSuite相关的回复
+            response_text = self._generate_onesuite_response(user_text)
+            
+            print(f"🤖 AI 回复: {response_text}")
+            
+            # 合成并播放回复
+            await self._synthesize_and_play(response_text)
+            
+        except Exception as e:
+            print(f"❌ AI回复生成失败: {e}")
+    
+    def _generate_onesuite_response(self, user_text: str) -> str:
+        """生成OneSuite相关的回复"""
+        # 简单的关键词匹配回复
+        user_text_lower = user_text.lower()
+        
+        if any(word in user_text_lower for word in ['价格', '费用', '收费', '多少钱']):
+            return "OneSuite提供最实惠的商业电话服务，基础套餐每月仅需4.95美元，包含本地号码、自动接待员等功能。您想了解具体套餐详情吗？"
+        
+        elif any(word in user_text_lower for word in ['功能', '特性', '服务']):
+            return "OneSuite提供完整的商业电话解决方案，包括本地号码、免费号码、自动接待员、短信服务、语音邮件转邮件、网络传真等功能。"
+        
+        elif any(word in user_text_lower for word in ['注册', '开户', '申请']):
+            return "您可以通过我们的官网onesuitebusiness.com注册账户，或者下载我们的移动应用。注册过程简单快捷，无需硬件设备。"
+        
+        elif any(word in user_text_lower for word in ['支持', '帮助', '客服']):
+            return "我是Aiker，OneSuite的AI客服助手。如果您需要人工客服，可以访问我们的帮助中心或发送邮件联系我们。"
+        
+        else:
+            return f"我听到您说：{user_text}。我是Aiker，OneSuite的商业客服助手。OneSuite是最实惠的商业电话服务提供商，提供完整的通信解决方案。请问您想了解我们的哪些服务？"
 
 
-async def main():
+def main():
     """主函数"""
     print("=" * 60)
-    print("VTX AI Phone System v2.0 (Enhanced)")
+    print("Aiker - OneSuite 商业客服机器人 v2.0")
     print("=" * 60)
     
-    # 检查API密钥状态
-    print("🔑 API密钥状态检查...")
-    available_services = api_manager.get_available_services()
-    missing_services = api_manager.get_missing_services()
+    # 检查依赖
+    try:
+        import asyncio
+        import aiohttp
+        print("✅ 核心依赖正常")
+    except ImportError as e:
+        print(f"❌ 依赖缺失: {e}")
+        return 1
     
-    print(f"✅ 可用服务: {', '.join(available_services) if available_services else '无'}")
-    if missing_services:
-        print(f"⚠️ 缺失服务: {', '.join(missing_services)}")
+    # 检查API密钥
+    try:
+        available = api_manager.get_available_services()
+        missing = api_manager.get_missing_services()
+        
+        print(f"✅ 可用服务: {', '.join(available)}")
+        if missing:
+            print(f"❌ 缺失服务: {', '.join(missing)}")
+            return 1
+    except Exception as e:
+        print(f"❌ API密钥检查失败: {e}")
+        return 1
     
     print("-" * 60)
     
     try:
-        system = EnhancedVTXAIPhoneSystem()
-        await system.start()
+        system = AikerPhoneSystem()
+        system.start()
     except Exception as e:
         print(f"❌ 系统错误: {e}")
         import traceback
@@ -396,4 +403,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main()) 
+    sys.exit(main()) 
