@@ -8,11 +8,16 @@ import asyncio
 import json
 import logging
 import time
-import websockets
 from typing import Optional, Callable, Dict, Any
 from dataclasses import dataclass
 from enum import Enum
 import base64
+
+try:
+    import websockets
+except ImportError:
+    websockets = None
+    logging.warning("websockets库未安装，Deepgram功能将不可用")
 
 from ...utils.api_manager import api_manager
 from ...utils.performance_monitor import performance_monitor
@@ -89,6 +94,10 @@ class DeepgramSTTProvider:
     
     async def connect(self) -> bool:
         """建立WebSocket连接"""
+        if websockets is None:
+            logger.error("❌ websockets库未安装，无法连接Deepgram")
+            return False
+            
         if self.state == ConnectionState.CONNECTED:
             return True
         
@@ -99,10 +108,10 @@ class DeepgramSTTProvider:
             # 构建WebSocket URL
             url = self._build_websocket_url()
             
-            # 建立连接
+            # 建立连接 - 修复参数问题
             self.websocket = await websockets.connect(
                 url,
-                extra_headers={"Authorization": f"Token {self.api_key}"},
+                additional_headers={"Authorization": f"Token {self.api_key}"},
                 ping_interval=20,
                 ping_timeout=10
             )
@@ -182,6 +191,9 @@ class DeepgramSTTProvider:
     
     async def _listen_for_messages(self):
         """监听WebSocket消息"""
+        if websockets is None:
+            return
+            
         try:
             async for message in self.websocket:
                 await self._handle_message(message)
