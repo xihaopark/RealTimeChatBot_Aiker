@@ -198,12 +198,14 @@ show_help() {
     echo "  -m, --message TEXT    指定提交信息"
     echo "  -b, --branch BRANCH   指定分支名称 (默认: main)"
     echo "  -c, --cleanup         清理临时文件"
+    echo "  -s, --status          仅检查状态，不进行同步"
     echo "  -h, --help            显示此帮助信息"
     echo ""
     echo "示例:"
     echo "  $0                    自动同步所有变更"
     echo "  $0 -m '修复bug'       使用指定信息提交"
     echo "  $0 -c                 仅清理临时文件"
+    echo "  $0 -s                 检查当前状态"
 }
 
 # 主函数
@@ -224,6 +226,12 @@ main() {
                 ;;
             -c|--cleanup)
                 cleanup
+                exit 0
+                ;;
+            -s|--status)
+                check_git
+                check_repo
+                get_status
                 exit 0
                 ;;
             -h|--help)
