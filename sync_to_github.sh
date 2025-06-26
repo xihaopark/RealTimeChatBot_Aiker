@@ -52,6 +52,13 @@ check_repo() {
         git remote add origin "$REPO_URL"
         log_success "Git仓库初始化完成"
     fi
+    
+    # 确保分支名称正确
+    local current_branch=$(git branch --show-current 2>/dev/null || echo "master")
+    if [ "$current_branch" != "$BRANCH" ]; then
+        log_info "当前分支: $current_branch，重命名为: $BRANCH"
+        git branch -M "$BRANCH"
+    fi
 }
 
 # 检查远程仓库连接
