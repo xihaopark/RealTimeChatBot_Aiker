@@ -81,15 +81,39 @@ check_remote() {
 get_status() {
     log_info "检查代码变更状态..."
     
-    # 检查是否有未提交的变更
-    if git diff-index --quiet HEAD --; then
+    # 检查是否有未跟踪的文件
+    local untracked_files=$(git ls-files --others --exclude-standard)
+    local modified_files=$(git diff --name-only)
+    local staged_files=$(git diff --cached --name-only)
+    
+    # 合并所有变更
+    local all_changes=$(echo -e "$untracked_files\n$modified_files\n$staged_files" | grep -v '^$' | sort -u)
+    
+    if [ -z "$all_changes" ]; then
         log_warning "没有检测到代码变更"
         return 1
     fi
     
     # 显示变更摘要
     log_info "检测到以下变更："
-    git status --short
+    
+    # 显示未跟踪的文件
+    if [ -n "$untracked_files" ]; then
+        echo "📁 新文件:"
+        echo "$untracked_files" | sed 's/^/  + /'
+    fi
+    
+    # 显示已修改的文件
+    if [ -n "$modified_files" ]; then
+        echo "📝 修改文件:"
+        echo "$modified_files" | sed 's/^/  M /'
+    fi
+    
+    # 显示已暂存的文件
+    if [ -n "$staged_files" ]; then
+        echo "✅ 已暂存:"
+        echo "$staged_files" | sed 's/^/  S /'
+    fi
     
     return 0
 }
@@ -97,18 +121,30 @@ get_status() {
 # 生成提交信息
 generate_commit_message() {
     local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    local changes=$(git diff --name-only --cached 2>/dev/null || git diff --name-only)
+    
+    # 获取所有变更文件（包括新文件）
+    local untracked_files=$(git ls-files --others --exclude-standard)
+    local modified_files=$(git diff --name-only)
+    local staged_files=$(git diff --cached --name-only)
+    
+    # 合并所有变更
+    local all_changes=$(echo -e "$untracked_files\n$modified_files\n$staged_files" | grep -v '^$' | sort -u)
     
     if [ -z "$COMMIT_MESSAGE" ]; then
         # 自动生成提交信息
-        local change_count=$(echo "$changes" | wc -l)
-        local change_summary=$(echo "$changes" | head -3 | tr '\n' ' ' | sed 's/ $//')
+        local change_count=$(echo "$all_changes" | wc -l)
+        local change_summary=$(echo "$all_changes" | head -3 | tr '\n' ' ' | sed 's/ $//')
         
         if [ "$change_count" -gt 3 ]; then
             change_summary="$change_summary ... 等${change_count}个文件"
         fi
         
-        COMMIT_MESSAGE="Update: $change_summary - $timestamp"
+        # 根据变更类型生成不同的前缀
+        if [ -n "$untracked_files" ]; then
+            COMMIT_MESSAGE="Add: $change_summary - $timestamp"
+        else
+            COMMIT_MESSAGE="Update: $change_summary - $timestamp"
+        fi
     fi
 }
 
