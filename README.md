@@ -1,161 +1,71 @@
-# VTX AI Phone System - 实时AI电话机器人
+# VTX AI Phone System v2.0
 
-[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![GitHub](https://img.shields.io/badge/GitHub-xihaopark/RealTimeChatBot_Aiker-blue.svg)](https://github.com/xihaopark/RealTimeChatBot_Aiker)
+🚀 **基于H100 GPU的高性能AI电话系统** - 在101分机上实现基础AI语音对话功能
 
-一个基于Python的智能AI电话系统，能够通过VTX IP电话系统接听和处理电话，集成了实时语音识别(STT)、语音合成(TTS)和大语言模型(LLM)，实现完整的AI电话对话功能。
+## 🎯 项目概述
 
-## 🚀 功能特性
+VTX AI Phone System 是一个集成SIP/RTP协议的智能电话系统，支持实时AI语音对话。系统采用本地服务器+外部API混合架构，在2x H100 GPU环境下运行，目标响应延迟<800ms。
 
-- ✅ **SIP/RTP协议支持** - 兼容标准IP电话系统
-- ✅ **实时语音识别** - 支持OpenAI Whisper和本地Whisper模型
-- ✅ **智能语音合成** - 支持Edge-TTS和OpenAI TTS
-- ✅ **AI智能对话** - 集成OpenAI GPT模型，支持上下文对话
-- ✅ **自动NAT穿透** - STUN/TURN支持，解决网络连接问题
-- ✅ **多分机支持** - 支持多个分机同时工作
-- ✅ **通话录音** - 自动录制和分析通话内容
-- ✅ **实时监控** - 完整的系统监控和日志记录
-- ✅ **配置管理** - 灵活的环境变量配置系统
+### ✨ 核心特性
 
-## 📁 项目结构
+- 🎤 **流式语音识别** - Deepgram + Whisper本地备选
+- 🔊 **高品质语音合成** - ElevenLabs + Edge-TTS备选  
+- 🧠 **智能对话管理** - GPT-4o-mini + 多轮对话
+- 📞 **SIP/RTP集成** - 与VTX电话系统无缝对接
+- ⚡ **高性能优化** - 目标延迟800ms，支持并发
+- 🔧 **模块化架构** - 易于扩展和维护
+
+## 🏗️ 系统架构
 
 ```
-vtx-llm-bot/
-├── 📁 src/                          # 源代码目录
-│   ├── 📁 ai/                       # AI处理模块
-│   │   ├── __init__.py              # AI模块初始化
-│   │   ├── conversation_manager.py  # 对话管理器
-│   │   ├── stt_engine.py            # 语音识别引擎
-│   │   ├── tts_engine.py            # 语音合成引擎
-│   │   └── llm_handler.py           # 大语言模型处理器
-│   ├── 📁 audio/                    # 音频处理模块
-│   │   ├── __init__.py              # 音频模块初始化
-│   │   ├── codec.py                 # 音频编解码器
-│   │   └── generator.py             # 音频生成器
-│   ├── 📁 rtp/                      # RTP协议处理
-│   │   ├── __init__.py              # RTP模块初始化
-│   │   ├── handler.py               # RTP处理器
-│   │   └── packet.py                # RTP数据包处理
-│   ├── 📁 sdp/                      # SDP协议处理
-│   │   ├── __init__.py              # SDP模块初始化
-│   │   └── parser.py                # SDP解析器
-│   ├── 📁 sip/                      # SIP协议处理
-│   │   ├── __init__.py              # SIP模块初始化
-│   │   ├── auth.py                  # SIP认证
-│   │   ├── client.py                # SIP客户端
-│   │   └── messages.py              # SIP消息处理
-│   ├── 📁 utils/                    # 工具模块
-│   ├── __init__.py                  # 源代码包初始化
-│   └── main.py                      # 主程序入口
-├── 📁 config/                       # 配置目录
-│   └── settings.py                  # 系统配置管理
-├── 📁 venv/                         # Python虚拟环境
-├── 📄 requirements.txt              # Python依赖包
-├── 📄 .gitignore                    # Git忽略文件
-├── 📄 sync_to_github.sh             # GitHub同步脚本
-├── 📄 deploy.sh                     # 部署脚本
-└── 📄 README.md                     # 项目说明文档
+VTX AI Phone System
+├── 📞 SIP/RTP 协议层
+├── 🎤 语音识别层 (Deepgram + Whisper)
+├── 🧠 AI对话层 (OpenAI GPT)
+├── 🔊 语音合成层 (ElevenLabs + Edge-TTS)
+└── 🔧 系统管理层 (配置 + 监控)
 ```
 
-## 🔧 核心模块详解
+## 📋 开发计划
 
-### 🤖 AI模块 (`src/ai/`)
+### Phase 1: 基础架构搭建 ✅
+- [x] 项目结构重组
+- [x] API密钥管理系统
+- [x] 增强配置系统
+- [x] 性能监控工具
 
-#### `conversation_manager.py`
-- **功能**: 管理完整的AI对话流程
-- **核心类**: `ConversationManager`, `ConversationConfig`
-- **职责**: 
-  - 协调STT、TTS、LLM三个引擎
-  - 管理对话状态和上下文
-  - 处理音频输入输出流
-  - 实现打断检测和静音超时
+### Phase 2: 核心组件开发 🔄
+- [ ] 流式STT引擎
+- [ ] 第三方提供商实现
+- [ ] 智能LLM处理器
+- [ ] 实时对话管理器
 
-#### `stt_engine.py`
-- **功能**: 语音识别引擎
-- **核心类**: `STTEngine`, `STTConfig`, `AudioBuffer`
-- **支持**: 
-  - OpenAI Whisper API
-  - 本地Whisper模型
-  - 实时音频流处理
-  - 语音活动检测(VAD)
+### Phase 3: 系统集成 📋
+- [ ] 主程序集成
+- [ ] 完整对话流程
+- [ ] 错误处理和回退
 
-#### `tts_engine.py`
-- **功能**: 语音合成引擎
-- **核心类**: `TTSEngine`, `TTSConfig`
-- **支持**:
-  - Edge-TTS (微软)
-  - OpenAI TTS
-  - 多种中文语音
-  - 实时音频流输出
-
-#### `llm_handler.py`
-- **功能**: 大语言模型处理器
-- **核心类**: `LLMHandler`, `LLMConfig`, `Message`
-- **支持**:
-  - OpenAI GPT系列
-  - 自定义API端点
-  - 对话历史管理
-  - 上下文保持
-
-### 🔊 音频模块 (`src/audio/`)
-
-#### `codec.py`
-- **功能**: 音频编解码器
-- **核心类**: `G711Codec`
-- **支持**:
-  - μ-law编码/解码
-  - A-law编码/解码
-  - PCM格式转换
-
-#### `generator.py`
-- **功能**: 音频生成器
-- **核心类**: `AudioGenerator`
-- **支持**:
-  - 测试音频生成
-  - 提示音生成
-  - 音频格式转换
-
-### 🌐 网络协议模块
-
-#### SIP模块 (`src/sip/`)
-- **client.py**: SIP客户端实现
-- **auth.py**: SIP认证处理
-- **messages.py**: SIP消息解析和构建
-
-#### RTP模块 (`src/rtp/`)
-- **handler.py**: RTP数据流处理
-- **packet.py**: RTP数据包封装
-
-#### SDP模块 (`src/sdp/`)
-- **parser.py**: SDP会话描述协议解析
-
-### ⚙️ 配置模块 (`config/`)
-
-#### `settings.py`
-- **功能**: 统一配置管理
-- **核心类**: `Settings`, `VTXConfig`, `AIConfig`, `SystemConfig`
-- **支持**:
-  - 环境变量配置
-  - 多分机配置
-  - 网络参数配置
-  - AI模型配置
+### Phase 4: 测试验证 📋
+- [ ] 单元测试
+- [ ] 集成测试
+- [ ] 性能测试
+- [ ] 实际通话测试
 
 ## 🚀 快速开始
 
 ### 环境要求
 
+- **硬件**: 2x H100 GPU服务器
+- **系统**: Linux/macOS
 - **Python**: 3.8+
-- **操作系统**: Linux/macOS/Windows
-- **网络**: 支持UDP的网络环境
-- **VTX账户**: 有效的VTX IP电话系统账户
+- **网络**: 稳定的互联网连接
 
 ### 安装步骤
 
 1. **克隆项目**
 ```bash
 git clone https://github.com/xihaopark/RealTimeChatBot_Aiker.git
-cd RealTimeChatBot_Aiker
+cd vtx-llm-bot
 ```
 
 2. **创建虚拟环境**
@@ -163,7 +73,7 @@ cd RealTimeChatBot_Aiker
 python -m venv venv
 source venv/bin/activate  # Linux/macOS
 # 或
-venv\Scripts\activate     # Windows
+venv\Scripts\activate  # Windows
 ```
 
 3. **安装依赖**
@@ -171,158 +81,217 @@ venv\Scripts\activate     # Windows
 pip install -r requirements.txt
 ```
 
-4. **配置环境变量**
+4. **配置API密钥**
 ```bash
-cp .env.example .env
-# 编辑 .env 文件，填入你的配置信息
+# 复制模板文件
+cp api_keys/templates/*.template api_keys/
+
+# 编辑并填入你的API密钥
+# - api_keys/deepgram.key
+# - api_keys/elevenlabs.key  
+# - api_keys/openai.key
 ```
 
-5. **运行系统**
+5. **配置系统设置**
+```bash
+cp env.example .env
+# 编辑.env文件，配置VTX服务器信息
+```
+
+6. **启动系统**
 ```bash
 python src/main.py
 ```
 
-### 环境变量配置
+## 🔑 API服务配置
 
-创建 `.env` 文件并配置以下变量：
+### 必需的付费API服务
 
-```env
+| 服务 | 用途 | 费用 | 申请链接 |
+|------|------|------|----------|
+| **Deepgram** | 流式语音识别 | $0.0043/分钟 | [申请](https://deepgram.com/) |
+| **ElevenLabs** | 高品质语音合成 | $0.18/1000字符 | [申请](https://elevenlabs.io/) |
+| **OpenAI** | 智能对话生成 | 按使用量计费 | [申请](https://platform.openai.com/) |
+
+### 预估成本
+- **每月1000分钟通话**: $20-35
+- **Deepgram**: $4.30
+- **ElevenLabs**: $15-30 (取决于回复长度)
+
+## 📁 项目结构
+
+```
+vtx-llm-bot/
+├── 📁 api_keys/                 # API密钥管理
+│   ├── .gitignore              # 保护敏感文件
+│   ├── README.md               # 密钥管理说明
+│   └── templates/              # 密钥模板
+├── 📁 config/                  # 配置管理
+│   ├── settings.py             # 基础配置
+│   └── enhanced/               # 增强配置
+│       └── conversation_config.py
+├── 📁 src/                     # 源代码
+│   ├── 📁 ai/                  # AI模块
+│   │   ├── enhanced/           # 增强AI模块
+│   │   ├── providers/          # 第三方提供商
+│   │   └── ...                 # 原有AI模块
+│   ├── 📁 utils/               # 工具模块
+│   │   ├── api_manager.py      # API密钥管理
+│   │   ├── performance_monitor.py # 性能监控
+│   │   └── audio_utils.py      # 音频工具
+│   ├── 📁 sip/                 # SIP协议
+│   ├── 📁 rtp/                 # RTP协议
+│   ├── 📁 sdp/                 # SDP协议
+│   └── main.py                 # 主程序
+├── 📁 docs/                    # 文档
+│   ├── COLLABORATION_GUIDE.md  # 协作协议
+│   ├── design-decisions.md     # 设计决策
+│   └── feedback-log.md         # 反馈日志
+├── 📁 logs/                    # 日志文件
+├── 📁 temp/                    # 临时文件
+├── requirements.txt            # 依赖包
+├── sync_to_github.sh          # 同步脚本
+└── README.md                   # 项目说明
+```
+
+## 🔧 配置说明
+
+### 基础配置 (config/settings.py)
+```python
 # VTX服务器配置
-VTX_SERVER=core1-us-lax.myippbx.com
-VTX_PORT=5060
-VTX_DOMAIN=aiker.myippbx.com
-VTX_DID=14088779998
+VTX_SERVER = "your_vtx_server"
+VTX_PORT = 5060
+VTX_DOMAIN = "your_domain"
+DID_NUMBER = "your_did_number"
 
 # 分机配置
-EXTENSION_101_USERNAME=your_username
-EXTENSION_101_PASSWORD=your_password
-EXTENSION_101_DESCRIPTION=AI Assistant
-
-# AI配置
-OPENAI_API_KEY=your_openai_api_key
-STT_PROVIDER=whisper
-TTS_PROVIDER=edge-tts
-LLM_PROVIDER=openai
-
-# 网络配置
-SIP_PORT=5060
-RTP_PORT_START=10000
-RTP_PORT_END=10500
-USE_STUN=true
+EXTENSIONS = {
+    "101": {
+        "username": "101",
+        "password": "your_password"
+    }
+}
 ```
 
-## 🔄 GitHub同步机制
+### 增强配置 (configs/enhanced/conversation_config.py)
+```python
+# 性能配置
+target_latency = 0.8  # 目标延迟800ms
+enable_streaming = True
+enable_local_fallback = True
 
-### 自动同步脚本
-
-项目包含自动同步到GitHub的脚本：
-
-```bash
-# 执行同步
-./sync_to_github.sh
+# AI服务配置
+stt_primary = "deepgram"
+tts_primary = "elevenlabs"
+llm_primary = "gpt-4o-mini"
 ```
 
-### 同步脚本功能
+## 📊 性能指标
 
-- 自动提交代码变更
-- 推送到GitHub仓库
-- 生成提交日志
-- 错误处理和回滚
+### 目标性能
+- **响应延迟**: <800ms
+- **语音识别准确率**: >95%
+- **语音合成质量**: 接近真人
+- **系统可用性**: >99.9%
 
-### 手动同步
+### 监控指标
+- 实时响应时间
+- STT/TTS延迟
+- 错误率和成功率
+- 系统资源使用
 
-```bash
-# 添加所有文件
-git add .
+## 🤝 协作开发
 
-# 提交变更
-git commit -m "Update: 描述你的变更"
+本项目采用**用户决策 + Claude设计 + Cursor执行**的协作模式：
 
-# 推送到GitHub
-git push origin main
-```
+- **用户**: 项目目标、功能需求、优先级决策
+- **Claude**: 技术方案设计、架构规划、可行性分析  
+- **Cursor**: 代码实现、环境配置、调试部署
 
-## 📊 监控和日志
-
-### 日志系统
-- 使用 `loguru` 进行日志管理
-- 支持多级别日志输出
-- 自动日志轮转
-
-### 系统监控
-- 实时通话状态监控
-- 性能指标收集
-- 健康检查机制
+详细协作协议请参考 [docs/COLLABORATION_GUIDE.md](docs/COLLABORATION_GUIDE.md)
 
 ## 🧪 测试
 
 ### 运行测试
 ```bash
-# 运行所有测试
-pytest
+# 单元测试
+pytest src/tests/
 
-# 运行特定测试
-pytest tests/test_sip.py
+# 集成测试
+pytest src/tests/integration/
 
-# 生成覆盖率报告
-pytest --cov=src
+# 性能测试
+python -m pytest src/tests/ -k "performance"
 ```
 
-## 🚀 部署
+### 测试覆盖
+- 语音识别准确性
+- 语音合成质量
+- 对话流程完整性
+- 性能指标达标
+- 错误处理机制
+
+## 📈 部署
 
 ### 生产环境部署
 ```bash
-# 使用部署脚本
-./deploy.sh
+# 1. 环境准备
+./deploy.sh prepare
 
-# 或手动部署
-python src/main.py --production
+# 2. 安装依赖
+./deploy.sh install
+
+# 3. 配置服务
+./deploy.sh configure
+
+# 4. 启动服务
+./deploy.sh start
 ```
 
-### Docker部署
+### 监控和维护
 ```bash
-# 构建镜像
-docker build -t vtx-ai-phone .
+# 查看性能报告
+python -c "from src.utils.performance_monitor import performance_monitor; performance_monitor.print_performance_report()"
 
-# 运行容器
-docker run -d --name vtx-ai-phone vtx-ai-phone
+# 检查API状态
+python -c "from src.utils.api_manager import api_manager; api_manager.print_status()"
 ```
 
-## 🤝 贡献指南
+## 📝 更新日志
 
-1. Fork 项目
-2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 打开 Pull Request
+### v2.0.0 (2024-01-XX)
+- 🎉 全新架构设计
+- 🚀 集成Deepgram + ElevenLabs
+- 📊 性能监控系统
+- 🔧 模块化重构
+- 📚 完善文档体系
 
-## 📝 许可证
+### v1.0.0 (2024-01-XX)
+- 🎯 基础SIP/RTP集成
+- 🎤 Whisper语音识别
+- 🔊 Edge-TTS语音合成
+- 🤖 OpenAI对话集成
 
-本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
+## 📄 许可证
+
+MIT License - 详见 [LICENSE](LICENSE) 文件
+
+## 🤝 贡献
+
+欢迎提交Issue和Pull Request！
+
+1. Fork项目
+2. 创建功能分支
+3. 提交更改
+4. 推送到分支
+5. 创建Pull Request
 
 ## 📞 支持
 
-如果你遇到问题或有建议，请：
-
-1. 查看 [Issues](https://github.com/xihaopark/RealTimeChatBot_Aiker/issues)
-2. 创建新的 Issue
-3. 联系项目维护者
-
-## 🔄 更新日志
-
-### v2.0.0 (2024-01-XX)
-- ✅ 重构AI模块架构
-- ✅ 添加完整的对话管理
-- ✅ 优化音频处理流程
-- ✅ 改进错误处理机制
-- ✅ 添加GitHub同步脚本
-
-### v1.0.0 (2024-01-XX)
-- ✅ 基础SIP/RTP功能
-- ✅ 语音识别和合成
-- ✅ AI对话功能
+- 📧 邮箱: [your-email@example.com]
+- 🐛 Issues: [GitHub Issues](https://github.com/xihaopark/RealTimeChatBot_Aiker/issues)
+- 📚 文档: [项目Wiki](https://github.com/xihaopark/RealTimeChatBot_Aiker/wiki)
 
 ---
 
-**项目维护者**: [xihaopark](https://github.com/xihaopark)  
-**项目地址**: [https://github.com/xihaopark/RealTimeChatBot_Aiker](https://github.com/xihaopark/RealTimeChatBot_Aiker)
+**VTX AI Phone System** - 让AI电话更智能，让沟通更自然 🚀

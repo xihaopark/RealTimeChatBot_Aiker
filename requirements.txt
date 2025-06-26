@@ -1,30 +1,40 @@
-#核心依赖
-pyVoIP>=1.6.5
-numpy>=1.21.0
-scipy>=1.7.0
-#AI依赖
-openai-whisper>=20230918
-edge-tts>=6.1.9
-openai>=1.0.0
-#网络和NAT
-pystun3>=1.0.0
-aiortc>=1.5.0  # WebRTC支持
+# VTX AI Phone System - 依赖包
+
+# 核心依赖
+asyncio
 aiohttp>=3.8.0
-#音频处理
-soundfile>=0.11.0
+numpy>=1.21.0
+
+# 语音识别
+whisper>=1.0.0
+deepgram-sdk>=2.0.0
+
+# 语音合成
+edge-tts>=6.0.0
+elevenlabs>=0.2.0
+
+# AI对话
+openai>=1.0.0
+
+# 音频处理
+pydub>=0.25.0
 librosa>=0.9.0
-webrtcvad>=2.0.10
-#工具
+
+# 网络协议
+sip>=0.1.0
+
+# 工具库
 python-dotenv>=0.19.0
-pydantic>=1.10.0
-loguru>=0.6.0
-prometheus-client>=0.15.0
-asyncio>=3.4.3
-#测试
+pydantic>=1.9.0
+dataclasses-json>=0.5.0
+
+# 开发工具
 pytest>=7.0.0
-pytest-asyncio>=0.20.0
-pytest-cov>=4.0.0
-#可选依赖
+pytest-asyncio>=0.21.0
+black>=22.0.0
+flake8>=4.0.0
+
+# 可选依赖
 redis>=4.5.0  # 分布式部署
 celery>=5.2.0  # 任务队列
 
@@ -44,10 +54,6 @@ openai>=1.0.0             # LLM API
 # 音频格式转换（可选）
 pydub>=0.25.1            # 音频格式转换
 ffmpeg-python>=0.2.0     # FFmpeg 绑定
-
-# 异步支持
-aiohttp>=3.8.0           # 异步 HTTP
-asyncio>=3.4.3           # 异步 IO
 
 # 日志
 loguru>=0.6.0
