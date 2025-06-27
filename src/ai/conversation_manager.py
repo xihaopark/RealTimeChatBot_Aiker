@@ -225,11 +225,32 @@ class ConversationManager:
         if self.state == ConversationState.LISTENING:
             self._change_state(ConversationState.PROCESSING)
             
-            # 异步生成回复
-            asyncio.run_coroutine_threadsafe(
-                self._generate_response(text),
-                asyncio.get_event_loop()
-            )
+            # 在新线程中运行异步任务
+            threading.Thread(
+                target=self._run_async_response,
+                args=(text,),
+                daemon=True
+            ).start()
+    
+    def _run_async_response(self, user_input: str):
+        """在新线程中运行异步响应生成"""
+        try:
+            # 创建新的事件循环
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+            # 运行异步任务
+            loop.run_until_complete(self._generate_response(user_input))
+            
+        except Exception as e:
+            print(f"❌ 异步响应生成错误: {e}")
+            self._change_state(ConversationState.LISTENING)
+        finally:
+            # 清理事件循环
+            try:
+                loop.close()
+            except:
+                pass
     
     async def _generate_response(self, user_input: str):
         """生成并播放回复"""

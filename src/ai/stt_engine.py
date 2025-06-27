@@ -31,6 +31,7 @@ class STTProvider(Enum):
     """STT 提供商"""
     OPENAI = "openai"
     WHISPER_LOCAL = "whisper_local"
+    DEEPGRAM = "deepgram"
 
 
 @dataclass
@@ -109,43 +110,60 @@ class STTEngine:
             config: STT 配置
         """
         self.config = config or STTConfig()
-        self.running = False
         
-        # 初始化提供商
+        # 从API密钥管理器获取密钥
+        from src.utils.api_keys import get_api_key
+        
         if self.config.provider == STTProvider.OPENAI:
-            if not HAS_OPENAI:
-                print("⚠️ OpenAI 不可用，切换到本地 Whisper")
-                self.config.provider = STTProvider.WHISPER_LOCAL
-            else:
-                # 设置 OpenAI API
-                if self.config.api_key:
-                    openai.api_key = self.config.api_key
-                elif os.getenv("OPENAI_API_KEY"):
-                    openai.api_key = os.getenv("OPENAI_API_KEY")
-                else:
-                    print("⚠️ 未设置 OpenAI API 密钥")
-                    self.config.provider = STTProvider.WHISPER_LOCAL
+            # OpenAI Whisper API
+            api_key = self.config.api_key or get_api_key('openai')
+            if not api_key or api_key.startswith('your_'):
+                raise ValueError("未设置 OpenAI API 密钥")
+            
+            import openai
+            openai.api_key = api_key
+            self.openai_client = openai
+            
+            print(f"🎤 STT 引擎初始化: {self.config.provider.value}")
+            print(f"   模型: {self.config.model}")
+            print(f"   API密钥: {api_key[:8]}...{api_key[-4:] if len(api_key) > 12 else '***'}")
+            
+        elif self.config.provider == STTProvider.WHISPER_LOCAL:
+            # 本地 Whisper
+            try:
+                import whisper
+                print(f"📥 加载 Whisper 模型: {self.config.local_model_size}")
+                self.whisper_model = whisper.load_model(self.config.local_model_size)
+                print(f"🎤 STT 引擎初始化: {self.config.provider.value}")
+            except ImportError:
+                raise RuntimeError("Whisper 库未安装，请运行: pip install openai-whisper")
+            except Exception as e:
+                raise RuntimeError(f"加载 Whisper 模型失败: {e}")
         
-        if self.config.provider == STTProvider.WHISPER_LOCAL:
-            if not HAS_WHISPER:
-                raise RuntimeError("Whisper 库未安装，无法使用语音识别")
-            # 加载本地模型
-            print(f"📥 加载 Whisper 模型: {self.config.local_model_size}")
-            self.whisper_model = whisper.load_model(self.config.local_model_size)
+        elif self.config.provider == STTProvider.DEEPGRAM:
+            # Deepgram API
+            api_key = self.config.api_key or get_api_key('deepgram')
+            if not api_key or api_key.startswith('your_'):
+                raise ValueError("未设置 Deepgram API 密钥")
+            
+            try:
+                from deepgram import Deepgram
+                self.deepgram_client = Deepgram(api_key)
+                print(f"🎤 STT 引擎初始化: {self.config.provider.value}")
+                print(f"   API密钥: {api_key[:8]}...{api_key[-4:] if len(api_key) > 12 else '***'}")
+            except ImportError:
+                raise RuntimeError("Deepgram 库未安装，请运行: pip install deepgram-sdk")
         
         # 音频缓冲区
         self.audio_buffer = AudioBuffer(self.config.sample_rate)
         
-        # 识别结果队列
-        self.result_queue = queue.Queue()
-        
-        # 回调函数
-        self.on_transcription: Optional[Callable[[str, float], None]] = None
-        
         # 处理线程
+        self.running = False
         self.process_thread = None
         
-        print(f"🎤 STT 引擎初始化: {self.config.provider.value}")
+        # 结果队列和回调
+        self.result_queue = queue.Queue()
+        self.on_transcription = None
     
     def start(self):
         """启动 STT 引擎"""
@@ -183,43 +201,81 @@ class STTEngine:
             audio_array = np.frombuffer(audio_data, dtype=np.int16)
         
         # 转换采样率（如果需要）
-        # 假设输入是 8kHz，需要转换到 16kHz
-        if format == "ulaw":  # 8kHz
-            # 简单的上采样（重复样本）
-            audio_array = np.repeat(audio_array, 2)
+        if format == "ulaw":  # 8kHz -> 16kHz
+            # 使用线性插值进行上采样
+            original_length = len(audio_array)
+            target_length = original_length * 2
+            
+            # 创建目标数组
+            upsampled = np.zeros(target_length, dtype=np.int16)
+            
+            # 线性插值
+            for i in range(target_length):
+                src_idx = i / 2.0
+                src_idx_floor = int(src_idx)
+                src_idx_ceil = min(src_idx_floor + 1, original_length - 1)
+                weight = src_idx - src_idx_floor
+                
+                if src_idx_floor < original_length - 1:
+                    upsampled[i] = int(audio_array[src_idx_floor] * (1 - weight) + 
+                                     audio_array[src_idx_ceil] * weight)
+                else:
+                    upsampled[i] = audio_array[src_idx_floor]
+            
+            audio_array = upsampled
         
         # 归一化到 [-1, 1]
         audio_float = audio_array.astype(np.float32) / 32768.0
         
         # 添加到缓冲区
         self.audio_buffer.add_audio(audio_float)
+        
+        # 调试信息：只在有显著音频活动时显示
+        if len(audio_data) > 0:
+            energy = np.sqrt(np.mean(audio_float ** 2))
+            if energy > 0.05:  # 只在能量较高时显示
+                print(f"🎵 检测到音频活动: 能量 {energy:.3f}")
     
     def _process_loop(self):
         """处理循环"""
         while self.running:
             # 检查缓冲区
-            if self.audio_buffer.duration() >= self.config.chunk_duration:
+            buffer_duration = self.audio_buffer.duration()
+            
+            if buffer_duration >= self.config.chunk_duration:
                 # 获取音频块
                 audio_chunk = self.audio_buffer.get_audio(self.config.chunk_duration)
                 
-                if audio_chunk is not None and self._is_speech(audio_chunk):
-                    # 执行语音识别
-                    start_time = time.time()
-                    text = self._transcribe(audio_chunk)
-                    duration = time.time() - start_time
-                    
-                    if text and text.strip():
-                        # 添加到结果队列
-                        self.result_queue.put((text, duration))
+                if audio_chunk is not None:
+                    # 检查是否有语音活动
+                    if self._is_speech(audio_chunk):
+                        energy = np.sqrt(np.mean(audio_chunk ** 2))
+                        print(f"🎤 检测到语音活动，能量: {energy:.4f}")
                         
-                        # 调用回调
-                        if self.on_transcription:
-                            self.on_transcription(text, duration)
+                        # 执行语音识别
+                        start_time = time.time()
+                        text = self._transcribe(audio_chunk)
+                        duration = time.time() - start_time
                         
-                        print(f"🎤 识别: {text} (耗时: {duration:.2f}s)")
+                        if text and text.strip():
+                            # 添加到结果队列
+                            self.result_queue.put((text, duration))
+                            
+                            # 调用回调
+                            if self.on_transcription:
+                                self.on_transcription(text, duration)
+                            
+                            print(f"🎤 识别: {text} (耗时: {duration:.2f}s)")
+                        else:
+                            print("🎤 识别结果为空")
+                    else:
+                        # 调试：只在有能量但被判定为静音时显示
+                        energy = np.sqrt(np.mean(audio_chunk ** 2))
+                        if energy > 0.01:  # 只显示有能量的音频
+                            print(f"🔇 静音检测: 能量 {energy:.4f} < 阈值 {self.config.silence_threshold}")
             
             # 短暂休眠
-            time.sleep(0.1)
+            time.sleep(0.05)  # 减少延迟
     
     def _is_speech(self, audio: np.ndarray) -> bool:
         """
@@ -234,8 +290,15 @@ class STTEngine:
         # 计算能量
         energy = np.sqrt(np.mean(audio ** 2))
         
-        # 检查是否超过静音阈值
-        return energy > self.config.silence_threshold
+        # 计算过零率（语音特征）
+        zero_crossings = np.sum(np.diff(np.sign(audio)) != 0)
+        zero_crossing_rate = zero_crossings / len(audio)
+        
+        # 综合判断：能量 + 过零率
+        energy_ok = energy > self.config.silence_threshold
+        zcr_ok = zero_crossing_rate > 0.01  # 语音通常有较高的过零率
+        
+        return energy_ok and zcr_ok
     
     def _transcribe(self, audio: np.ndarray) -> Optional[str]:
         """
@@ -250,8 +313,10 @@ class STTEngine:
         try:
             if self.config.provider == STTProvider.OPENAI:
                 return self._transcribe_openai(audio)
-            else:
+            elif self.config.provider == STTProvider.WHISPER_LOCAL:
                 return self._transcribe_whisper(audio)
+            elif self.config.provider == STTProvider.DEEPGRAM:
+                return self._transcribe_deepgram(audio)
         except Exception as e:
             print(f"❌ 语音识别错误: {e}")
             return None
@@ -276,7 +341,7 @@ class STTEngine:
         try:
             # 调用 OpenAI API
             with open(temp_path, 'rb') as audio_file:
-                response = openai.Audio.transcribe(
+                response = self.openai_client.Audio.transcribe(
                     model=self.config.model,
                     file=audio_file,
                     language=self.config.language
@@ -297,6 +362,13 @@ class STTEngine:
         )
         
         return result.get('text', '')
+    
+    def _transcribe_deepgram(self, audio: np.ndarray) -> Optional[str]:
+        """使用 Deepgram API 进行语音识别"""
+        # 实现 Deepgram 语音识别逻辑
+        # 这里需要根据 Deepgram 的 SDK 文档实现具体的识别逻辑
+        # 这里只是一个占位符，实际实现需要根据 Deepgram 的 SDK 文档进行
+        return None
     
     def get_transcription(self, timeout: float = 0.1) -> Optional[Tuple[str, float]]:
         """

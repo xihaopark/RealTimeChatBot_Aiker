@@ -162,6 +162,7 @@ class RTPHandler:
         # 发送
         try:
             self.sock.sendto(packet, (self.remote_ip, self.remote_port))
+            
             # 更新序列号和时间戳
             self.sequence = (self.sequence + 1) & 0xFFFF
             self.timestamp = (self.timestamp + 160) & 0xFFFFFFFF  # 20ms @ 8kHz
@@ -221,6 +222,9 @@ class RTPHandler:
                         with open(sample_file, 'wb') as f:
                             f.write(data)
                         print(f"[RTP分析] 保存样本到: {sample_file}")
+                        
+                        # 详细解析并显示包结构
+                        self._analyze_rtp_packet(data, payload_type)
                     
                     # 专门检测人声活动
                     if payload_type in [0, 8]:  # PCMU/PCMA音频包
@@ -239,6 +243,9 @@ class RTPHandler:
                                 with open(voice_sample_file, 'wb') as f:
                                     f.write(data)
                                 print(f"💾 保存人声样本: {voice_sample_file}")
+                                
+                                # 分析人声包
+                                self._analyze_voice_packet(data, payload_type)
                     
                     # 每10秒报告一次接收状态（而不是每个包都显示）
                     current_time = time.time()
@@ -295,6 +302,56 @@ class RTPHandler:
             'ssrc': ssrc
         }
     
+    def _analyze_rtp_packet(self, packet_data, payload_type):
+        """分析RTP包结构"""
+        print(f"\n🔍 RTP包结构分析 (payload_type={payload_type}):")
+        print("=" * 60)
+        
+        # 解析头部
+        header = self._parse_rtp_header(packet_data[:12])
+        if header:
+            print(f"📋 RTP头部信息:")
+            print(f"  版本: {header['version']}")
+            print(f"  填充: {header['padding']}")
+            print(f"  扩展: {header['extension']}")
+            print(f"  CSRC数量: {header['csrc_count']}")
+            print(f"  标记: {header['marker']}")
+            print(f"  负载类型: {header['payload_type']} ({self._payload_type_to_codec(header['payload_type'])})")
+            print(f"  序列号: {header['sequence_number']}")
+            print(f"  时间戳: {header['timestamp']}")
+            print(f"  SSRC: 0x{header['ssrc']:08X}")
+        
+        # 分析负载数据
+        payload = packet_data[12:]
+        print(f"\n📦 负载数据:")
+        print(f"  总包大小: {len(packet_data)} 字节")
+        print(f"  头部大小: 12 字节")
+        print(f"  负载大小: {len(payload)} 字节")
+        
+        # 显示负载数据的前16字节（十六进制）
+        if payload:
+            hex_data = ' '.join(f'{b:02x}' for b in payload[:16])
+            print(f"  负载前16字节: {hex_data}")
+            
+            # 如果是音频数据，分析音频特征
+            if payload_type in [0, 8]:  # PCMU/PCMA
+                print(f"  音频分析:")
+                # 计算音频能量
+                if payload_type == 0:  # PCMU
+                    # μ-law解码（简化）
+                    energy = sum(abs(b - 0x7F) for b in payload[:16])
+                else:  # PCMA
+                    # A-law解码（简化）
+                    energy = sum(abs(b - 0x55) for b in payload[:16])
+                
+                print(f"    能量水平: {energy}")
+                if energy > 100:
+                    print(f"    🎤 检测到语音活动")
+                else:
+                    print(f"    🔇 静音或低音量")
+        
+        print("=" * 60)
+    
     def _payload_type_to_codec(self, payload_type):
         """将payload type转换为编解码器名称"""
         codec_map = {
@@ -314,6 +371,7 @@ class RTPHandler:
         
         # 计算音频能量
         if payload_type == 0:  # PCMU
+            # μ-law解码（简化）
             energy = sum(abs(b - 0x7F) for b in payload)
             avg_energy = energy / len(payload)
             
@@ -322,10 +380,11 @@ class RTPHandler:
             silence_ratio = silence_count / len(payload)
             
             # 语音活动检测条件
-            if avg_energy > 30 and silence_ratio < 0.7:
+            if avg_energy > 30 and silence_ratio < 0.7:  # 能量足够且不是主要静音
                 return True
                 
         elif payload_type == 8:  # PCMA
+            # A-law解码（简化）
             energy = sum(abs(b - 0x55) for b in payload)
             avg_energy = energy / len(payload)
             
@@ -333,6 +392,55 @@ class RTPHandler:
                 return True
         
         return False
+    
+    def _analyze_voice_packet(self, packet_data, payload_type):
+        """分析人声包"""
+        print(f"\n🎤 人声包分析 (payload_type={payload_type}):")
+        print("=" * 50)
+        
+        # 解析头部
+        header = self._parse_rtp_header(packet_data[:12])
+        if header:
+            print(f"📋 RTP头部:")
+            print(f"  序列号: {header['sequence_number']}")
+            print(f"  时间戳: {header['timestamp']}")
+            print(f"  标记: {header['marker']}")
+        
+        # 分析负载
+        payload = packet_data[12:]
+        print(f"\n🎵 音频分析:")
+        print(f"  负载大小: {len(payload)} 字节")
+        
+        # 显示前32字节的十六进制
+        hex_data = ' '.join(f'{b:02x}' for b in payload[:32])
+        print(f"  前32字节: {hex_data}")
+        
+        # 详细音频分析
+        if payload_type == 0:  # PCMU
+            energy = sum(abs(b - 0x7F) for b in payload)
+            avg_energy = energy / len(payload)
+            silence_count = sum(1 for b in payload if b == 0xFF or b == 0x7F)
+            silence_ratio = silence_count / len(payload)
+            
+            print(f"  平均能量: {avg_energy:.2f}")
+            print(f"  静音比例: {silence_ratio:.2%}")
+            
+            # 判断语音特征
+            if avg_energy > 50:
+                print(f"  🔊 强语音信号")
+            elif avg_energy > 20:
+                print(f"  🎤 中等语音信号")
+            else:
+                print(f"  🔈 弱语音信号")
+                
+            if silence_ratio < 0.3:
+                print(f"  🎵 连续语音")
+            elif silence_ratio < 0.7:
+                print(f"  🎤 混合语音")
+            else:
+                print(f"  🔇 主要是静音")
+        
+        print("=" * 50)
 
 
 class G711Codec:
@@ -442,9 +550,6 @@ class EnhancedSIPClient:
         self.active_calls = {}  # Call-ID -> RTPHandler
         self.processed_invites = set()
         self.call_tags = {}
-        
-        # 音频回调
-        self.audio_callback = None
         
         # RTP 端口范围
         self.rtp_port_start = 10000
@@ -621,10 +726,9 @@ class EnhancedSIPClient:
         for i in range(0, len(test_audio), packet_size):
             packet = test_audio[i:i+packet_size]
             
-            # 确保包大小正确 - 使用静音填充而不是0xFF
+            # 确保包大小正确
             if len(packet) < packet_size:
-                # 使用μ-law静音值 (0x7F) 来填充
-                packet += b'\x7F' * (packet_size - len(packet))
+                packet += b'\xFF' * (packet_size - len(packet))
             
             rtp_handler.send_audio(packet, payload_type=0)
             packets_sent += 1
@@ -780,67 +884,93 @@ class EnhancedSIPClient:
             return False
     
     def _receive_loop(self):
-        """SIP消息接收循环"""
-        print(f"📡 SIP接收循环启动: 监听 {self.local_ip}:{self.local_port}")
+        """接收循环"""
+        print(f"🎧 RTP接收循环启动: 监听 {self.local_ip}:{self.local_port}")
+        seen_payload_types = set()
+        packet_count = 0
+        last_report_time = time.time()
+        voice_packet_count = 0
+        last_voice_time = 0
+        
+        # 创建RTP包保存目录
+        rtp_samples_dir = "rtp_samples"
+        if not os.path.exists(rtp_samples_dir):
+            os.makedirs(rtp_samples_dir)
         
         while self.running:
             try:
                 data, addr = self.sock.recvfrom(4096)
-                message = data.decode('utf-8', errors='ignore')
+                packet_count += 1
                 
-                # 解析消息
-                first_line = message.split('\n')[0].strip()
-                
-                # 处理注册响应
-                if self.waiting_for_register and ("200 OK" in first_line or "407 Proxy Authentication Required" in first_line):
-                    print(f"📥 收到注册响应: {first_line}")
-                    self.register_response_queue.put(message)
-                    continue
-                
-                # 处理INVITE请求
-                if "INVITE" in first_line:
-                    call_id_match = re.search(r'Call-ID:\s*(.+)', message, re.IGNORECASE)
-                    if call_id_match:
-                        call_id = call_id_match.group(1).strip()
-                        if call_id not in self.processed_invites:
-                            self.processed_invites.add(call_id)
-                            print(f"\n📞 收到INVITE!")
-                            self._handle_invite(message, addr, call_id)
-                
-                # 处理BYE请求
-                elif "BYE" in first_line:
-                    call_id_match = re.search(r'Call-ID:\s*(.+)', message, re.IGNORECASE)
-                    if call_id_match:
-                        call_id = call_id_match.group(1).strip()
-                        print(f"📞 收到BYE请求")
-                        self._handle_bye(message, addr)
-                
-                # 处理OPTIONS请求
-                elif "OPTIONS" in first_line:
-                    print(f"📞 收到OPTIONS请求")
-                    self._handle_options(message, addr)
-                
-                # 处理CANCEL请求
-                elif "CANCEL" in first_line:
-                    call_id_match = re.search(r'Call-ID:\s*(.+)', message, re.IGNORECASE)
-                    if call_id_match:
-                        call_id = call_id_match.group(1).strip()
-                        print(f"📞 收到CANCEL请求")
-                        self._handle_cancel(message, addr)
-                
-                # 其他SIP消息
+                # 解析 RTP 包
+                if len(data) >= 12:  # RTP 头部至少 12 字节
+                    # 解析RTP头部
+                    rtp_header = self._parse_rtp_header(data[:12])
+                    payload_type = rtp_header['payload_type']
+                    payload = data[12:]
+                    
+                    # 只在新payload type出现时输出一次详细信息
+                    if payload_type not in seen_payload_types:
+                        seen_payload_types.add(payload_type)
+                        print(f"[RTP分析] 发现新payload_type={payload_type} ({self._payload_type_to_codec(payload_type)})")
+                        
+                        # 保存前几个包作为样本
+                        sample_file = f"{rtp_samples_dir}/sample_payload_{payload_type}_{int(time.time())}.bin"
+                        with open(sample_file, 'wb') as f:
+                            f.write(data)
+                        print(f"[RTP分析] 保存样本到: {sample_file}")
+                        
+                        # 详细解析并显示包结构
+                        self._analyze_rtp_packet(data, payload_type)
+                    
+                    # 专门检测人声活动
+                    if payload_type in [0, 8]:  # PCMU/PCMA音频包
+                        voice_detected = self._detect_voice_activity(payload, payload_type)
+                        if voice_detected:
+                            voice_packet_count += 1
+                            current_time = time.time()
+                            
+                            # 如果距离上次人声检测超过1秒，认为是新的人声片段
+                            if current_time - last_voice_time > 1.0:
+                                print(f"🎤 检测到人声活动! (第{voice_packet_count}个语音包)")
+                                last_voice_time = current_time
+                                
+                                # 保存人声包样本
+                                voice_sample_file = f"{rtp_samples_dir}/voice_sample_{int(current_time)}.bin"
+                                with open(voice_sample_file, 'wb') as f:
+                                    f.write(data)
+                                print(f"💾 保存人声样本: {voice_sample_file}")
+                                
+                                # 分析人声包
+                                self._analyze_voice_packet(data, payload_type)
+                    
+                    # 每10秒报告一次接收状态（而不是每个包都显示）
+                    current_time = time.time()
+                    if current_time - last_report_time >= 10:
+                        print(f"🎧 RTP接收状态: 已接收 {packet_count} 个包, payload_types: {seen_payload_types}")
+                        if voice_packet_count > 0:
+                            print(f"🎤 人声检测: 发现 {voice_packet_count} 个语音包")
+                        last_report_time = current_time
+                        packet_count = 0
+                    
+                    # 调用音频回调
+                    if self.audio_callback and payload:
+                        try:
+                            self.audio_callback(payload)
+                        except Exception as e:
+                            print(f"❌ 音频回调错误: {e}")
                 else:
-                    print(f"📥 收到其他SIP消息: {first_line}")
+                    print(f"⚠️ RTP包过短: {len(data)} 字节")
                 
             except socket.timeout:
                 continue
             except Exception as e:
                 if self.running:
-                    print(f"❌ SIP接收错误: {e}")
+                    print(f"❌ RTP 接收错误: {e}")
                     import traceback
                     traceback.print_exc()
         
-        print("📡 SIP接收循环已停止")
+        print("🎧 RTP接收循环已停止")
     
     def _keepalive_loop(self):
         """保活循环"""
@@ -1078,6 +1208,45 @@ class EnhancedSIPClient:
             self.sock.close()
         
         print("✅ 已停止")
+
+    def _parse_rtp_header(self, header_data):
+        """解析RTP头部"""
+        if len(header_data) < 12:
+            return None
+
+        # RTP头部格式: V=2, P=0, X=0, CC=0, M=1, PT=0, Sequence=2, Timestamp=4, SSRC=4
+        byte0, byte1, sequence, timestamp, ssrc = struct.unpack('!BBHII', header_data[:12])
+
+        version = (byte0 >> 6) & 0x03
+        padding = (byte0 >> 5) & 0x01
+        extension = (byte0 >> 4) & 0x01
+        csrc_count = byte0 & 0x0F
+        marker = (byte1 >> 7) & 0x01
+        payload_type = byte1 & 0x7F
+
+        return {
+            'version': version,
+            'padding': padding,
+            'extension': extension,
+            'csrc_count': csrc_count,
+            'marker': marker,
+            'payload_type': payload_type,
+            'sequence_number': sequence,
+            'timestamp': timestamp,
+            'ssrc': ssrc
+        }
+
+    def _payload_type_to_codec(self, payload_type):
+        """将payload type转换为编解码器名称"""
+        codec_map = {
+            0: "PCMU (G.711 μ-law)",
+            8: "PCMA (G.711 A-law)",
+            13: "CN (Comfort Noise)",
+            101: "DTMF",
+            110: "PCMU (G.711 μ-law)",
+            111: "PCMA (G.711 A-law)"
+        }
+        return codec_map.get(payload_type, f"未知({payload_type})")
 
 
 # 需要导入 math

@@ -7,6 +7,8 @@ import os
 from pathlib import Path
 from typing import Dict, List, Optional
 from dotenv import load_dotenv
+from dataclasses import dataclass, field
+from src.utils.api_keys import api_key_manager
 
 # 加载环境变量
 load_dotenv()
@@ -115,3 +117,36 @@ class Settings:
 
 # 全局配置实例
 settings = Settings()
+
+# 更新API配置部分
+@dataclass
+class APIConfig:
+    """API配置"""
+    # OpenAI配置
+    openai_api_key: str = field(default_factory=lambda: api_key_manager.get_key('openai') or os.getenv('OPENAI_API_KEY', ''))
+    openai_base_url: str = os.getenv('OPENAI_API_BASE', 'https://api.openai.com/v1')
+    
+    # Deepgram配置
+    deepgram_api_key: str = field(default_factory=lambda: api_key_manager.get_key('deepgram') or os.getenv('DEEPGRAM_API_KEY', ''))
+    
+    # ElevenLabs配置
+    elevenlabs_api_key: str = field(default_factory=lambda: api_key_manager.get_key('elevenlabs') or os.getenv('ELEVENLABS_API_KEY', ''))
+    
+    def validate(self) -> bool:
+        """验证API配置"""
+        required_keys = {
+            'OpenAI': self.openai_api_key,
+            'Deepgram': self.deepgram_api_key,
+            'ElevenLabs': self.elevenlabs_api_key
+        }
+        
+        missing_keys = []
+        for service, key in required_keys.items():
+            if not key or key.startswith('your_'):
+                missing_keys.append(service)
+        
+        if missing_keys:
+            print(f"⚠️ 缺少API密钥: {', '.join(missing_keys)}")
+            return False
+        
+        return True

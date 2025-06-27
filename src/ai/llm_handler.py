@@ -47,6 +47,7 @@ class LLMConfig:
     system_prompt: str = """你是一个友好的AI电话助手。请用简洁、自然的语言回答用户问题。
 记住这是电话对话，回答要简短明了，避免长篇大论。"""
     timeout: float = 30.0
+    base_url: Optional[str] = None
 
 
 class LLMHandler:
@@ -61,20 +62,25 @@ class LLMHandler:
         """
         self.config = config or LLMConfig()
         
-        # 设置 API
+        # 从API密钥管理器获取密钥
+        from src.utils.api_keys import get_api_key
+        
         if self.config.provider == LLMProvider.OPENAI:
-            if not HAS_OPENAI:
-                raise RuntimeError("OpenAI 库未安装")
-            
-            if self.config.api_key:
-                openai.api_key = self.config.api_key
-            elif os.getenv("OPENAI_API_KEY"):
-                openai.api_key = os.getenv("OPENAI_API_KEY")
-            else:
+            # 优先使用配置中的密钥，然后尝试API密钥管理器
+            api_key = self.config.api_key or get_api_key('openai')
+            if not api_key or api_key.startswith('your_'):
                 raise ValueError("未设置 OpenAI API 密钥")
             
-            if self.config.api_base:
-                openai.api_base = self.config.api_base
+            # 设置OpenAI客户端
+            openai.api_key = api_key
+            if self.config.base_url:
+                openai.base_url = self.config.base_url
+            
+            print(f"🤖 LLM 处理器初始化: {self.config.provider.value}")
+            print(f"   模型: {self.config.model}")
+            print(f"   API密钥: {api_key[:8]}...{api_key[-4:] if len(api_key) > 12 else '***'}")
+        else:
+            print(f"🤖 LLM 处理器初始化: {self.config.provider.value}")
         
         # 对话历史
         self.conversation_history: List[Message] = []
@@ -85,11 +91,8 @@ class LLMHandler:
                 Message("system", self.config.system_prompt)
             )
         
-        # 回调
-        self.on_response: Optional[Callable[[str], None]] = None
-        
-        print(f"🤖 LLM 处理器初始化: {self.config.provider.value}")
-        print(f"   模型: {self.config.model}")
+        # 设置回调
+        self.on_response = None
     
     async def generate_response(self, user_input: str) -> Optional[str]:
         """

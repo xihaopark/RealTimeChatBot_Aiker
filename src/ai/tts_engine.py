@@ -31,6 +31,7 @@ class TTSProvider(Enum):
     """TTS 提供商"""
     EDGE_TTS = "edge_tts"
     OPENAI = "openai"
+    ELEVENLABS = "elevenlabs"
 
 
 @dataclass
@@ -78,36 +79,57 @@ class TTSEngine:
             config: TTS 配置
         """
         self.config = config or TTSConfig()
-        self.running = False
         
-        # 检查提供商
-        if self.config.provider == TTSProvider.EDGE_TTS and not HAS_EDGE_TTS:
-            raise RuntimeError("Edge-TTS 未安装")
+        # 从API密钥管理器获取密钥
+        from src.utils.api_keys import get_api_key
         
-        if self.config.provider == TTSProvider.OPENAI:
-            if not HAS_OPENAI:
-                print("⚠️ OpenAI 不可用，切换到 Edge-TTS")
-                self.config.provider = TTSProvider.EDGE_TTS
-            elif self.config.api_key:
-                openai.api_key = self.config.api_key
-            elif os.getenv("OPENAI_API_KEY"):
-                openai.api_key = os.getenv("OPENAI_API_KEY")
+        if self.config.provider == TTSProvider.EDGE_TTS:
+            # Edge-TTS (免费)
+            print(f"🔊 TTS 引擎初始化: {self.config.provider.value}")
+            print(f"   语音: {self.config.voice}")
+            
+        elif self.config.provider == TTSProvider.OPENAI:
+            # OpenAI TTS
+            api_key = self.config.api_key or get_api_key('openai')
+            if not api_key or api_key.startswith('your_'):
+                raise ValueError("未设置 OpenAI API 密钥")
+            
+            import openai
+            openai.api_key = api_key
+            self.openai_client = openai
+            
+            print(f"🔊 TTS 引擎初始化: {self.config.provider.value}")
+            print(f"   语音: {self.config.openai_voice}")
+            print(f"   API密钥: {api_key[:8]}...{api_key[-4:] if len(api_key) > 12 else '***'}")
+            
+        elif self.config.provider == TTSProvider.ELEVENLABS:
+            # ElevenLabs TTS
+            api_key = self.config.api_key or get_api_key('elevenlabs')
+            if not api_key or api_key.startswith('your_'):
+                raise ValueError("未设置 ElevenLabs API 密钥")
+            
+            try:
+                from elevenlabs import generate, set_api_key
+                set_api_key(api_key)
+                self.elevenlabs_api_key = api_key
+                print(f"🔊 TTS 引擎初始化: {self.config.provider.value}")
+                print(f"   API密钥: {api_key[:8]}...{api_key[-4:] if len(api_key) > 12 else '***'}")
+            except ImportError:
+                raise RuntimeError("ElevenLabs 库未安装，请运行: pip install elevenlabs")
         
         # 任务队列
         self.task_queue = queue.Queue()
         self.result_queue = queue.Queue()
         
-        # 回调
-        self.on_audio_ready: Optional[Callable[[bytes, str], None]] = None
-        
         # 处理线程
+        self.running = False
         self.process_thread = None
         
-        # 事件循环（Edge-TTS 需要）
+        # 事件循环
         self.loop = None
         
-        print(f"🔊 TTS 引擎初始化: {self.config.provider.value}")
-        print(f"   语音: {self.config.voice}")
+        # 回调
+        self.on_audio_ready = None
     
     def start(self):
         """启动 TTS 引擎"""
@@ -195,8 +217,12 @@ class TTSEngine:
         """
         if self.config.provider == TTSProvider.EDGE_TTS:
             return await self._synthesize_edge_tts(text)
-        else:
+        elif self.config.provider == TTSProvider.OPENAI:
             return await self._synthesize_openai(text)
+        elif self.config.provider == TTSProvider.ELEVENLABS:
+            return await self._synthesize_elevenlabs(text)
+        else:
+            return None
     
     async def _synthesize_edge_tts(self, text: str) -> Optional[bytes]:
         """使用 Edge-TTS 合成"""
@@ -233,7 +259,7 @@ class TTSEngine:
         """使用 OpenAI TTS 合成"""
         try:
             response = await asyncio.to_thread(
-                openai.Audio.create,
+                self.openai_client.Audio.create,
                 model="tts-1",
                 voice=self.config.openai_voice,
                 input=text,
@@ -245,6 +271,16 @@ class TTSEngine:
             
         except Exception as e:
             print(f"❌ OpenAI TTS 错误: {e}")
+            return None
+    
+    async def _synthesize_elevenlabs(self, text: str) -> Optional[bytes]:
+        """使用 ElevenLabs TTS 合成"""
+        try:
+            from elevenlabs import generate
+            audio_data = generate(text, voice_id=self.elevenlabs_api_key)
+            return audio_data
+        except Exception as e:
+            print(f"❌ ElevenLabs TTS 错误: {e}")
             return None
     
     def _convert_mp3_to_pcm(self, mp3_data: bytes) -> Optional[bytes]:
@@ -344,8 +380,11 @@ class TTSEngine:
                 self.config.voice = self.CHINESE_VOICES[voice]
             else:
                 self.config.voice = voice
-        else:
+        elif self.config.provider == TTSProvider.OPENAI:
             self.config.openai_voice = voice
+        elif self.config.provider == TTSProvider.ELEVENLABS:
+            # ElevenLabs TTS 不需要设置语音
+            pass
         
         print(f"🔊 切换语音: {voice}")
     
@@ -353,5 +392,9 @@ class TTSEngine:
         """列出可用的语音"""
         if self.config.provider == TTSProvider.EDGE_TTS:
             return list(self.CHINESE_VOICES.keys())
-        else:
+        elif self.config.provider == TTSProvider.OPENAI:
             return ["alloy", "echo", "fable", "onyx", "nova", "shimmer"]
+        elif self.config.provider == TTSProvider.ELEVENLABS:
+            return []
+        else:
+            return []

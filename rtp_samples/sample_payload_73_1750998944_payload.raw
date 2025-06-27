@@ -1,0 +1,9 @@
+Proxy Authentication Required
+Proxy-Authenticate: Digest realm="aiker.myippbx.com", nonce="7c9636b26101d6d8cea68c425568b3b0"
+Via: SIP/2.0/UDP 107.191.58.14:55752;branch=z9hG4bKdac180e3ea7849b592b1fc4db9916f54;received=107.191.58.14;rport=55752
+To: <sip:101@aiker.myippbx.com>
+From: <sip:101@aiker.myippbx.com>;tag=62ee9c49
+Call-ID: 1b21d191-cdcd-4b20-a212-8ced057ff4c9@107.191.58.14
+CSeq: 1 REGISTER
+Content-Length: 0
+
