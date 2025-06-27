@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-增强的 SIP 客户端 - 支持音频接听
-基于 working_sip_client_v4.py，添加 SDP 和 RTP 支持
+增强的 SIP 客户端 - 支持音频接听和AI对话
+基于 working_sip_client_v4.py，添加 SDP、RTP 支持和AI对话功能
 """
 
 import socket
@@ -19,6 +19,16 @@ import math
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from config.settings import settings
+
+# 导入AI对话模块
+try:
+    from ai_conversation import AIConversationManager
+    AI_AVAILABLE = True
+    print("✅ AI对话模块加载成功")
+except ImportError as e:
+    AI_AVAILABLE = False
+    print(f"⚠️ AI对话模块加载失败: {e}")
+    print("📝 将使用默认音频播放模式")
 
 class SDPParser:
     """SDP 解析器"""
@@ -117,6 +127,18 @@ class RTPHandler:
         self.receive_thread = None
         self.send_queue = queue.Queue()
         
+        # AI对话支持
+        self.ai_conversation = None
+        self.audio_callback = None
+        
+    def set_ai_conversation(self, ai_conversation):
+        """设置AI对话管理器"""
+        self.ai_conversation = ai_conversation
+        
+    def set_audio_callback(self, callback):
+        """设置音频回调函数"""
+        self.audio_callback = callback
+        
     def start(self, remote_ip, remote_port):
         """启动 RTP"""
         self.remote_ip = remote_ip
@@ -174,17 +196,58 @@ class RTPHandler:
         
         return header + payload
     
+    def _parse_rtp_packet(self, data):
+        """解析RTP包"""
+        if len(data) < 12:  # RTP头部至少12字节
+            return None
+            
+        # 解析RTP头部
+        header = struct.unpack('!BBHII', data[:12])
+        version = (header[0] >> 6) & 0x03
+        payload_type = header[1] & 0x7F
+        sequence = header[2]
+        timestamp = header[3]
+        ssrc = header[4]
+        
+        # 提取音频数据
+        payload = data[12:]
+        
+        return {
+            'version': version,
+            'payload_type': payload_type,
+            'sequence': sequence,
+            'timestamp': timestamp,
+            'ssrc': ssrc,
+            'payload': payload
+        }
+    
     def _receive_loop(self):
         """接收循环"""
         while self.running:
             try:
                 data, addr = self.sock.recvfrom(4096)
-                # TODO: 处理接收到的 RTP 包
+                
+                # 解析RTP包
+                rtp_packet = self._parse_rtp_packet(data)
+                if rtp_packet and rtp_packet['payload']:
+                    # 处理音频数据
+                    self._handle_audio_data(rtp_packet['payload'])
+                    
             except socket.timeout:
                 continue
             except Exception as e:
                 if self.running:
                     print(f"RTP 接收错误: {e}")
+    
+    def _handle_audio_data(self, audio_data):
+        """处理接收到的音频数据"""
+        # 发送给AI对话管理器
+        if self.ai_conversation:
+            self.ai_conversation.process_audio_input(audio_data)
+        
+        # 调用音频回调函数
+        if self.audio_callback:
+            self.audio_callback(audio_data)
 
 
 class G711Codec:
@@ -426,7 +489,7 @@ class EnhancedSIPClient:
                 # 启动 RTP
                 rtp_handler.start(remote_ip, remote_port)
                 
-                # 发送测试音频 "1871"
+                # 发送测试音频
                 threading.Thread(target=self._send_test_audio, 
                                args=(rtp_handler,)).start()
         else:
@@ -465,8 +528,67 @@ class EnhancedSIPClient:
         print("📤 发送: 200 OK (with SDP)")
     
     def _send_test_audio(self, rtp_handler):
-        """发送测试音频 1871 + 真人语音"""
-        print("🎵 开始发送测试音频: 1871 + 真人语音")
+        """启动AI对话或发送测试音频"""
+        print("🎤 准备启动AI对话...")
+        
+        if AI_AVAILABLE:
+            # 启动AI对话
+            self._start_ai_conversation(rtp_handler)
+        else:
+            # 回退到默认音频播放
+            self._send_default_audio(rtp_handler)
+    
+    def _start_ai_conversation(self, rtp_handler):
+        """启动AI对话"""
+        try:
+            print("🤖 初始化AI对话管理器...")
+            
+            # 创建AI对话管理器
+            ai_conversation = AIConversationManager()
+            
+            # 设置音频回调函数
+            def audio_callback(audio_data):
+                """AI生成的音频回调"""
+                if rtp_handler and rtp_handler.running:
+                    # 分包发送AI生成的音频
+                    packet_size = 160  # 20ms @ 8kHz
+                    for i in range(0, len(audio_data), packet_size):
+                        packet = audio_data[i:i+packet_size]
+                        
+                        # 确保包大小正确
+                        if len(packet) < packet_size:
+                            packet += b'\xFF' * (packet_size - len(packet))
+                        
+                        rtp_handler.send_audio(packet, payload_type=0)
+                        time.sleep(0.02)  # 20ms
+            
+            ai_conversation.set_audio_callback(audio_callback)
+            
+            # 设置RTP处理器的AI对话管理器
+            rtp_handler.set_ai_conversation(ai_conversation)
+            
+            # 启动AI对话
+            ai_conversation.start_conversation()
+            
+            # 启动音频处理线程
+            audio_thread = ai_conversation.start_audio_processing_thread()
+            
+            print("✅ AI对话启动成功！")
+            print("🎤 用户可以通过语音与AI助手对话")
+            
+            # 保存AI对话管理器引用，以便在通话结束时停止
+            rtp_handler.ai_conversation = ai_conversation
+            
+        except Exception as e:
+            print(f"❌ AI对话启动失败: {e}")
+            import traceback
+            traceback.print_exc()
+            print("⚠️ 回退到默认音频播放")
+            self._send_default_audio(rtp_handler)
+    
+    def _send_default_audio(self, rtp_handler):
+        """发送默认测试音频（回退方案）"""
+        print("🎵 开始发送默认测试音频: 1871 + 真人语音")
         
         # 先等待一下，确保对方准备好
         time.sleep(0.5)
@@ -541,7 +663,7 @@ class EnhancedSIPClient:
                 traceback.print_exc()
                 print("⚠️ 继续使用DTMF音调作为备选")
         
-        print(f"🎵 测试音频发送完成: 总计 {packets_sent + voice_packets_sent} 个包")
+        print(f"🎵 默认音频发送完成: 总计 {packets_sent + voice_packets_sent} 个包")
     
     def _get_next_rtp_port(self):
         """获取下一个可用的 RTP 端口"""

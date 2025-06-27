@@ -62,3 +62,12 @@ loguru>=0.6.0
 pytest>=7.0.0
 pytest-asyncio>=0.20.0
 ipython>=8.0.0
+
+# AI对话功能依赖
+requests>=2.25.0
+numpy>=1.20.0
+
+# 可选依赖（用于开发）
+# pytest>=6.0.0
+# black>=21.0.0
+# flake8>=3.9.0
