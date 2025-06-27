@@ -1,6 +1,0 @@
-# 忽略所有实际的API密钥文件
-*.key
-*.env
-!templates/
-!.gitignore
-!README.md 

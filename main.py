@@ -15,6 +15,7 @@ import os
 import queue
 import struct
 import random
+import math
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from config.settings import settings
@@ -115,11 +116,6 @@ class RTPHandler:
         self.running = False
         self.receive_thread = None
         self.send_queue = queue.Queue()
-        self.audio_callback = None  # 音频接收回调
-        
-    def set_audio_callback(self, callback):
-        """设置音频接收回调"""
-        self.audio_callback = callback
         
     def start(self, remote_ip, remote_port):
         """启动 RTP"""
@@ -138,18 +134,13 @@ class RTPHandler:
         self.receive_thread.daemon = True
         self.receive_thread.start()
         
-        print(f"🎵 RTP 处理器初始化: {self.local_ip}:{self.local_port}")
-        print(f"🎵 RTP 会话启动: {self.local_ip}:{self.local_port} <-> {remote_ip}:{remote_port}")
+        print(f"🎵 RTP 启动: {self.local_ip}:{self.local_port} <-> {remote_ip}:{remote_port}")
     
     def stop(self):
         """停止 RTP"""
         self.running = False
         if self.sock:
             self.sock.close()
-        print("🔇 停止 RTP 会话...")
-        if self.receive_thread:
-            self.receive_thread.join(timeout=1)
-        print("🔇 RTP 会话已停止")
     
     def send_audio(self, audio_data, payload_type=0):
         """发送音频数据"""
@@ -160,20 +151,18 @@ class RTPHandler:
         packet = self._build_rtp_packet(audio_data, payload_type)
         
         # 发送
-        try:
-            self.sock.sendto(packet, (self.remote_ip, self.remote_port))
-            # 更新序列号和时间戳
-            self.sequence = (self.sequence + 1) & 0xFFFF
-            self.timestamp = (self.timestamp + 160) & 0xFFFFFFFF  # 20ms @ 8kHz
-        except Exception as e:
-            print(f"❌ RTP 发送错误: {e}")
+        self.sock.sendto(packet, (self.remote_ip, self.remote_port))
+        
+        # 更新序列号和时间戳
+        self.sequence = (self.sequence + 1) & 0xFFFF
+        self.timestamp = (self.timestamp + 160) & 0xFFFFFFFF  # 20ms @ 8kHz
     
     def _build_rtp_packet(self, payload, payload_type):
         """构建 RTP 包"""
         # RTP 头部
-        # V=2, P=0, X=0, CC=0, M=1, PT=payload_type (设置标记位为1，与接收包一致)
+        # V=2, P=0, X=0, CC=0, M=0, PT=payload_type
         byte0 = 0x80  # V=2, P=0, X=0, CC=0
-        byte1 = 0x80 | (payload_type & 0x7F)  # 设置标记位为1
+        byte1 = payload_type & 0x7F
         
         # 打包头部
         header = struct.pack('!BBHII',
@@ -187,152 +176,15 @@ class RTPHandler:
     
     def _receive_loop(self):
         """接收循环"""
-        print(f"🎧 RTP接收循环启动: 监听 {self.local_ip}:{self.local_port}")
-        seen_payload_types = set()
-        packet_count = 0
-        last_report_time = time.time()
-        voice_packet_count = 0
-        last_voice_time = 0
-        
-        # 创建RTP包保存目录
-        rtp_samples_dir = "rtp_samples"
-        if not os.path.exists(rtp_samples_dir):
-            os.makedirs(rtp_samples_dir)
-        
         while self.running:
             try:
                 data, addr = self.sock.recvfrom(4096)
-                packet_count += 1
-                
-                # 解析 RTP 包
-                if len(data) >= 12:  # RTP 头部至少 12 字节
-                    # 解析RTP头部
-                    rtp_header = self._parse_rtp_header(data[:12])
-                    payload_type = rtp_header['payload_type']
-                    payload = data[12:]
-                    
-                    # 只在新payload type出现时输出一次详细信息
-                    if payload_type not in seen_payload_types:
-                        seen_payload_types.add(payload_type)
-                        print(f"[RTP分析] 发现新payload_type={payload_type} ({self._payload_type_to_codec(payload_type)})")
-                        
-                        # 保存前几个包作为样本
-                        sample_file = f"{rtp_samples_dir}/sample_payload_{payload_type}_{int(time.time())}.bin"
-                        with open(sample_file, 'wb') as f:
-                            f.write(data)
-                        print(f"[RTP分析] 保存样本到: {sample_file}")
-                    
-                    # 专门检测人声活动
-                    if payload_type in [0, 8]:  # PCMU/PCMA音频包
-                        voice_detected = self._detect_voice_activity(payload, payload_type)
-                        if voice_detected:
-                            voice_packet_count += 1
-                            current_time = time.time()
-                            
-                            # 如果距离上次人声检测超过1秒，认为是新的人声片段
-                            if current_time - last_voice_time > 1.0:
-                                print(f"🎤 检测到人声活动! (第{voice_packet_count}个语音包)")
-                                last_voice_time = current_time
-                                
-                                # 保存人声包样本
-                                voice_sample_file = f"{rtp_samples_dir}/voice_sample_{int(current_time)}.bin"
-                                with open(voice_sample_file, 'wb') as f:
-                                    f.write(data)
-                                print(f"💾 保存人声样本: {voice_sample_file}")
-                    
-                    # 每10秒报告一次接收状态（而不是每个包都显示）
-                    current_time = time.time()
-                    if current_time - last_report_time >= 10:
-                        print(f"🎧 RTP接收状态: 已接收 {packet_count} 个包, payload_types: {seen_payload_types}")
-                        if voice_packet_count > 0:
-                            print(f"🎤 人声检测: 发现 {voice_packet_count} 个语音包")
-                        last_report_time = current_time
-                        packet_count = 0
-                    
-                    # 调用音频回调
-                    if self.audio_callback and payload:
-                        try:
-                            self.audio_callback(payload)
-                        except Exception as e:
-                            print(f"❌ 音频回调错误: {e}")
-                else:
-                    print(f"⚠️ RTP包过短: {len(data)} 字节")
-                
+                # TODO: 处理接收到的 RTP 包
             except socket.timeout:
                 continue
             except Exception as e:
                 if self.running:
-                    print(f"❌ RTP 接收错误: {e}")
-                    import traceback
-                    traceback.print_exc()
-        
-        print("🎧 RTP接收循环已停止")
-    
-    def _parse_rtp_header(self, header_data):
-        """解析RTP头部"""
-        if len(header_data) < 12:
-            return None
-        
-        # RTP头部格式: V=2, P=0, X=0, CC=0, M=1, PT=0, Sequence=2, Timestamp=4, SSRC=4
-        byte0, byte1, sequence, timestamp, ssrc = struct.unpack('!BBHII', header_data[:12])
-        
-        version = (byte0 >> 6) & 0x03
-        padding = (byte0 >> 5) & 0x01
-        extension = (byte0 >> 4) & 0x01
-        csrc_count = byte0 & 0x0F
-        marker = (byte1 >> 7) & 0x01
-        payload_type = byte1 & 0x7F
-        
-        return {
-            'version': version,
-            'padding': padding,
-            'extension': extension,
-            'csrc_count': csrc_count,
-            'marker': marker,
-            'payload_type': payload_type,
-            'sequence_number': sequence,
-            'timestamp': timestamp,
-            'ssrc': ssrc
-        }
-    
-    def _payload_type_to_codec(self, payload_type):
-        """将payload type转换为编解码器名称"""
-        codec_map = {
-            0: "PCMU (G.711 μ-law)",
-            8: "PCMA (G.711 A-law)",
-            13: "CN (Comfort Noise)",
-            101: "DTMF",
-            110: "PCMU (G.711 μ-law)",
-            111: "PCMA (G.711 A-law)"
-        }
-        return codec_map.get(payload_type, f"未知({payload_type})")
-    
-    def _detect_voice_activity(self, payload, payload_type):
-        """检测语音活动"""
-        if not payload:
-            return False
-        
-        # 计算音频能量
-        if payload_type == 0:  # PCMU
-            energy = sum(abs(b - 0x7F) for b in payload)
-            avg_energy = energy / len(payload)
-            
-            # 检测静音
-            silence_count = sum(1 for b in payload if b == 0xFF or b == 0x7F)
-            silence_ratio = silence_count / len(payload)
-            
-            # 语音活动检测条件
-            if avg_energy > 30 and silence_ratio < 0.7:
-                return True
-                
-        elif payload_type == 8:  # PCMA
-            energy = sum(abs(b - 0x55) for b in payload)
-            avg_energy = energy / len(payload)
-            
-            if avg_energy > 30:
-                return True
-        
-        return False
+                    print(f"RTP 接收错误: {e}")
 
 
 class G711Codec:
@@ -403,6 +255,25 @@ class G711Codec:
             audio_data.append(ulaw)
         
         return bytes(audio_data)
+    
+    @staticmethod
+    def generate_test_pattern():
+        """生成测试音频模式 - 播放 '1871'"""
+        audio_data = bytearray()
+        
+        # 生成 "1871" 的DTMF音调
+        digits = ['1', '8', '7', '1']
+        for digit in digits:
+            # 每个数字播放0.5秒
+            digit_audio = G711Codec.generate_dtmf(digit, duration=0.5)
+            audio_data.extend(digit_audio)
+            
+            # 数字之间添加0.2秒静音
+            silence_samples = int(0.2 * 8000)
+            silence = bytearray([0xFF] * silence_samples)  # μ-law静音
+            audio_data.extend(silence)
+        
+        return bytes(audio_data)
 
 
 class EnhancedSIPClient:
@@ -442,9 +313,6 @@ class EnhancedSIPClient:
         self.active_calls = {}  # Call-ID -> RTPHandler
         self.processed_invites = set()
         self.call_tags = {}
-        
-        # 音频回调
-        self.audio_callback = None
         
         # RTP 端口范围
         self.rtp_port_start = 10000
@@ -597,45 +465,83 @@ class EnhancedSIPClient:
         print("📤 发送: 200 OK (with SDP)")
     
     def _send_test_audio(self, rtp_handler):
-        """发送测试音频 1871"""
-        print("🎵 开始发送测试音频: 1871")
+        """发送测试音频 1871 + 真人语音"""
+        print("🎵 开始发送测试音频: 1871 + 真人语音")
         
         # 先等待一下，确保对方准备好
         time.sleep(0.5)
         
-        # 使用我们生成的测试音频文件
-        try:
-            with open('test_audio.ulaw', 'rb') as f:
-                test_audio = f.read()
-            print(f"📊 加载测试音频: {len(test_audio)} 字节, 约 {len(test_audio)/8000:.1f} 秒")
-        except FileNotFoundError:
-            print("❌ 测试音频文件不存在，生成简单音频")
-            # 生成简单的440Hz音频
-            test_audio = G711Codec.generate_dtmf('1', duration=3.0)
-            print(f"📊 生成简单音频: {len(test_audio)} 字节")
+        # 1. 发送DTMF "1871"
+        print("📞 发送DTMF音调: 1871")
+        test_audio = G711Codec.generate_test_pattern()
+        print(f"📊 生成DTMF音频: {len(test_audio)} 字节, 约 {len(test_audio)/8000:.1f} 秒")
         
-        # 分包发送（每包 20ms）
+        # 分包发送DTMF（每包 20ms）
         packet_size = 160  # 20ms @ 8kHz
         packets_sent = 0
         
         for i in range(0, len(test_audio), packet_size):
             packet = test_audio[i:i+packet_size]
             
-            # 确保包大小正确 - 使用静音填充而不是0xFF
+            # 确保包大小正确
             if len(packet) < packet_size:
-                # 使用μ-law静音值 (0x7F) 来填充
-                packet += b'\x7F' * (packet_size - len(packet))
+                packet += b'\xFF' * (packet_size - len(packet))
             
             rtp_handler.send_audio(packet, payload_type=0)
             packets_sent += 1
             
             # 每秒打印进度
             if packets_sent % 50 == 0:
-                print(f"📤 已发送 {packets_sent} 个包 ({packets_sent * 0.02:.1f}秒)")
+                print(f"📤 已发送 {packets_sent} 个DTMF包 ({packets_sent * 0.02:.1f}秒)")
             
             time.sleep(0.02)  # 20ms
         
-        print(f"✅ 测试音频发送完成: {packets_sent} 个包")
+        print(f"✅ DTMF音频发送完成: {packets_sent} 个包")
+        print("🔍 准备发送真人语音...")
+        
+        # 2. 发送真人语音
+        voice_packets_sent = 0  # 初始化变量
+        print("🎤 发送真人语音: 您好，欢迎致电VTX AI电话系统")
+        
+        # 检查文件是否存在
+        import os
+        if not os.path.exists("welcome.ulaw"):
+            print("❌ welcome.ulaw 文件不存在！")
+            print("⚠️ 跳过真人语音，只发送DTMF")
+        else:
+            print("✅ welcome.ulaw 文件存在，开始加载...")
+            try:
+                with open("welcome.ulaw", "rb") as f:
+                    voice_audio = f.read()
+                
+                print(f"📊 加载真人语音: {len(voice_audio)} 字节, 约 {len(voice_audio)/8000:.1f} 秒")
+                
+                # 分包发送真人语音（每包 20ms）
+                for i in range(0, len(voice_audio), packet_size):
+                    packet = voice_audio[i:i+packet_size]
+                    
+                    # 确保包大小正确
+                    if len(packet) < packet_size:
+                        packet += b'\xFF' * (packet_size - len(packet))
+                    
+                    rtp_handler.send_audio(packet, payload_type=0)
+                    voice_packets_sent += 1
+                    
+                    # 每秒打印进度
+                    if voice_packets_sent % 50 == 0:
+                        print(f"🎤 已发送 {voice_packets_sent} 个语音包 ({voice_packets_sent * 0.02:.1f}秒)")
+                    
+                    time.sleep(0.02)  # 20ms
+                
+                print(f"✅ 真人语音发送完成: {voice_packets_sent} 个包")
+                
+            except Exception as e:
+                print(f"❌ 发送真人语音失败: {e}")
+                import traceback
+                traceback.print_exc()
+                print("⚠️ 继续使用DTMF音调作为备选")
+        
+        print(f"🎵 测试音频发送完成: 总计 {packets_sent + voice_packets_sent} 个包")
     
     def _get_next_rtp_port(self):
         """获取下一个可用的 RTP 端口"""
@@ -780,67 +686,95 @@ class EnhancedSIPClient:
             return False
     
     def _receive_loop(self):
-        """SIP消息接收循环"""
-        print(f"📡 SIP接收循环启动: 监听 {self.local_ip}:{self.local_port}")
+        """接收循环"""
+        print("👂 开始监听...")
+        
+        self.sock.settimeout(0.5)
         
         while self.running:
             try:
                 data, addr = self.sock.recvfrom(4096)
                 message = data.decode('utf-8', errors='ignore')
                 
-                # 解析消息
+                # 解析消息类型
                 first_line = message.split('\n')[0].strip()
                 
-                # 处理注册响应
-                if self.waiting_for_register and ("200 OK" in first_line or "407 Proxy Authentication Required" in first_line):
-                    print(f"📥 收到注册响应: {first_line}")
-                    self.register_response_queue.put(message)
-                    continue
-                
-                # 处理INVITE请求
-                if "INVITE" in first_line:
-                    call_id_match = re.search(r'Call-ID:\s*(.+)', message, re.IGNORECASE)
-                    if call_id_match:
-                        call_id = call_id_match.group(1).strip()
-                        if call_id not in self.processed_invites:
-                            self.processed_invites.add(call_id)
-                            print(f"\n📞 收到INVITE!")
-                            self._handle_invite(message, addr, call_id)
-                
-                # 处理BYE请求
-                elif "BYE" in first_line:
-                    call_id_match = re.search(r'Call-ID:\s*(.+)', message, re.IGNORECASE)
-                    if call_id_match:
-                        call_id = call_id_match.group(1).strip()
-                        print(f"📞 收到BYE请求")
-                        self._handle_bye(message, addr)
-                
-                # 处理OPTIONS请求
-                elif "OPTIONS" in first_line:
-                    print(f"📞 收到OPTIONS请求")
-                    self._handle_options(message, addr)
-                
-                # 处理CANCEL请求
-                elif "CANCEL" in first_line:
-                    call_id_match = re.search(r'Call-ID:\s*(.+)', message, re.IGNORECASE)
-                    if call_id_match:
-                        call_id = call_id_match.group(1).strip()
-                        print(f"📞 收到CANCEL请求")
-                        self._handle_cancel(message, addr)
-                
-                # 其他SIP消息
+                # 判断消息类型
+                if first_line.startswith("SIP/2.0"):
+                    # 这是一个响应
+                    self._handle_response(message, addr)
                 else:
-                    print(f"📥 收到其他SIP消息: {first_line}")
-                
+                    # 这是一个请求
+                    self._handle_request(message, addr, first_line)
+                    
             except socket.timeout:
                 continue
             except Exception as e:
                 if self.running:
-                    print(f"❌ SIP接收错误: {e}")
-                    import traceback
-                    traceback.print_exc()
+                    print(f"接收错误: {e}")
+    
+    def _handle_response(self, message, addr):
+        """处理SIP响应"""
+        # 检查是否是注册响应
+        cseq_match = re.search(r'CSeq:\s*(\d+)\s+(\w+)', message)
+        if cseq_match:
+            cseq_num = int(cseq_match.group(1))
+            method = cseq_match.group(2)
+            
+            if method == "REGISTER" and self.waiting_for_register and cseq_num == self.current_cseq:
+                # 这是我们等待的注册响应
+                self.register_response_queue.put(message)
+                return
         
-        print("📡 SIP接收循环已停止")
+        # 其他响应
+        status_line = message.split('\n')[0].strip()
+        if "OPTIONS" not in message:  # 不显示 OPTIONS 响应
+            print(f"\n📥 收到响应: {status_line}")
+    
+    def _handle_request(self, message, addr, first_line):
+        """处理SIP请求"""
+        if "INVITE" in first_line:
+            # 提取 Call-ID 和 CSeq
+            call_id_match = re.search(r'Call-ID:\s*(.+)', message, re.IGNORECASE)
+            cseq_match = re.search(r'CSeq:\s*(\d+)\s+(\w+)', message, re.IGNORECASE)
+            
+            if call_id_match and cseq_match:
+                call_id = call_id_match.group(1).strip()
+                cseq_num = cseq_match.group(1)
+                invite_id = f"{call_id}:{cseq_num}"
+                
+                # 检查是否已处理过
+                if invite_id not in self.processed_invites:
+                    self.processed_invites.add(invite_id)
+                    print(f"\n📞 收到新来电从 {addr}!")
+                    print(f"Call-ID: {call_id}")
+                    print(f"CSeq: {cseq_num} INVITE")
+                    self._handle_invite(message, addr, call_id)
+                else:
+                    # 重发的 INVITE，再次发送相同的响应
+                    print(f"🔄 收到重发的 INVITE (Call-ID: {call_id}, CSeq: {cseq_num})")
+                    self._resend_response(message, addr, call_id)
+            
+        elif "OPTIONS" in first_line:
+            # OPTIONS请求，静默处理
+            self._handle_options(message, addr)
+            
+        elif "BYE" in first_line:
+            print("📴 收到挂断请求")
+            self._handle_bye(message, addr)
+            
+        elif "ACK" in first_line:
+            print("✅ 收到 ACK 确认")
+            # 清理相关的 Call-ID
+            call_id_match = re.search(r'Call-ID:\s*(.+)', message, re.IGNORECASE)
+            if call_id_match:
+                call_id = call_id_match.group(1).strip()
+                # 清理已处理的 INVITE 记录
+                self.processed_invites = {inv for inv in self.processed_invites if not inv.startswith(call_id)}
+            
+        elif "CANCEL" in first_line:
+            print("🚫 收到取消请求")
+            self._handle_cancel(message, addr)
     
     def _keepalive_loop(self):
         """保活循环"""
@@ -1079,9 +1013,6 @@ class EnhancedSIPClient:
         
         print("✅ 已停止")
 
-
-# 需要导入 math
-import math
 
 # 主程序
 if __name__ == "__main__":
