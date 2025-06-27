@@ -1,168 +1,185 @@
-# VTX AI Phone System v2.0 - AI对话版
+# VTX AI Phone System v2.1
 
-一个集成了AI对话功能的智能电话系统，支持SIP注册、RTP音频处理和智能语音对话。
+一个基于Python的智能SIP电话系统，集成了AI语音对话功能，支持实时语音识别、AI对话和语音合成。
 
-## 🚀 新功能
+## 🚀 最新版本 v2.1 特性
 
-### AI对话机器人
-- **语音识别 (STT)** - 使用Deepgram API实时语音转文字
-- **智能对话 (LLM)** - 使用OpenAI ChatGPT生成自然回复
-- **语音合成 (TTS)** - 使用ElevenLabs API生成高质量语音
-- **流式对话** - 实时语音交互，支持连续对话
+### 🎤 完整AI语音对话系统
+- **Aiker AI助手** - 智能语音交互助手
+- **实时语音识别** - 使用Deepgram API进行高精度STT
+- **自然语音合成** - 使用ElevenLabs API生成流畅TTS
+- **智能对话管理** - 支持上下文理解和连续对话
+- **静音检测** - 智能等待用户说完再回复
 
-### 对话流程
-```
-用户语音 → Deepgram STT → ChatGPT → ElevenLabs TTS → 播放回复
-```
+### 🎵 音频处理优化
+- **中文女声TTS** - Sarah/Aria自然流畅的中文语音
+- **音频缓冲优化** - 改进的音频处理逻辑
+- **RTP流处理** - 稳定的实时音频传输
+- **格式自动转换** - 支持多种音频格式
+
+### 🔧 系统稳定性
+- **多API故障转移** - OpenAI、Deepgram、ElevenLabs
+- **完整错误处理** - 详细的日志和异常处理
+- **模块化架构** - 易于扩展和维护
 
 ## 📋 系统要求
 
 - Python 3.8+
-- 网络连接
-- 三个API密钥：
-  - OpenAI API Key (ChatGPT)
-  - Deepgram API Key (语音识别)
-  - ElevenLabs API Key (语音合成)
+- Linux服务器环境
+- 稳定的网络连接
+- 有效的API密钥
 
-## 🛠️ 安装
+## 🛠️ 安装配置
 
-1. **克隆仓库**
+### 1. 克隆项目
 ```bash
-git clone <repository-url>
+git clone https://github.com/your-username/vtx-voip.git
 cd vtx-voip
 ```
 
-2. **安装依赖**
+### 2. 安装依赖
 ```bash
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 ```
 
-3. **配置API密钥**
+### 3. 配置API密钥
+复制环境变量模板：
 ```bash
-# 在 api_keys/ 目录下创建密钥文件
-echo "your_openai_api_key" > api_keys/openai.key
-echo "your_deepgram_api_key" > api_keys/deepgram.key
-echo "your_elevenlabs_api_key" > api_keys/elevenlabs.key
+cp env.example .env
 ```
 
-4. **配置环境变量**
+编辑 `.env` 文件，填入您的API密钥：
 ```bash
-cp .env.example .env
-# 编辑 .env 文件，填入VTX服务器配置
+# OpenAI API (用于AI对话)
+OPENAI_API_KEY=your_openai_api_key
+
+# Deepgram API (用于语音识别)
+DEEPGRAM_API_KEY=your_deepgram_api_key
+
+# ElevenLabs API (用于语音合成)
+ELEVENLABS_API_KEY=your_elevenlabs_api_key
 ```
 
-## 🎯 使用方法
+### 4. 配置SIP服务器
+编辑 `config/sip_config.py`：
+```python
+SIP_SERVER = "your_sip_server_ip"
+SIP_PORT = 5060
+USERNAME = "your_username"
+PASSWORD = "your_password"
+```
+
+## 🚀 快速启动
 
 ### 启动AI对话系统
-```bash
-python3 main_ai.py
-```
-
-### 启动传统音频系统
 ```bash
 python3 main.py
 ```
 
-## 📞 功能特性
+### 启动基础SIP系统
+```bash
+python3 main_ai.py
+```
+
+## 📞 使用方法
+
+1. **注册分机** - 系统自动注册到SIP服务器
+2. **接听来电** - 自动接听并启动AI对话
+3. **语音交互** - 与Aiker进行自然语音对话
+4. **智能回复** - AI根据上下文提供智能回复
+
+## 🎯 功能特性
 
 ### AI对话功能
-- ✅ 实时语音识别
-- ✅ 智能对话生成
-- ✅ 高质量语音合成
+- ✅ 实时语音识别 (STT)
+- ✅ 智能AI对话 (OpenAI GPT)
+- ✅ 自然语音合成 (TTS)
+- ✅ 中文语音支持
 - ✅ 上下文理解
-- ✅ 自然语言交互
-- ✅ 自动回退机制
+- ✅ 静音检测
 
-### 电话系统功能
-- ✅ SIP注册和认证
-- ✅ 来电接听
-- ✅ RTP音频处理
-- ✅ 多分机支持
-- ✅ 通话管理
+### SIP电话功能
+- ✅ 自动注册和认证
+- ✅ 来电自动接听
+- ✅ RTP音频传输
+- ✅ 多路通话支持
+- ✅ 通话状态管理
 
-## 🔧 配置说明
+### 音频处理
+- ✅ G.711音频编解码
+- ✅ 实时音频流处理
+- ✅ 音频格式转换
+- ✅ 音频缓冲管理
 
-### API配置
-- **OpenAI**: 用于生成AI回复，支持GPT-3.5-turbo
-- **Deepgram**: 用于语音识别，支持中文识别
-- **ElevenLabs**: 用于语音合成，支持自然语音
+## 🔧 配置选项
 
-### 系统配置
-- **VTX服务器**: SIP服务器地址和端口
-- **分机配置**: 用户名、密码和描述
-- **RTP端口**: 音频传输端口范围
-- **日志级别**: 系统日志详细程度
-
-## 📊 版本历史
-
-### v2.0 - AI对话版 (当前)
-- 🆕 集成AI对话功能
-- 🆕 支持语音识别和合成
-- 🆕 智能对话机器人
-- 🆕 流式语音交互
-
-### v1.0 - 基础版
-- ✅ SIP注册和认证
-- ✅ 来电接听
-- ✅ RTP音频处理
-- ✅ DTMF音调播放
-
-## 🤖 AI对话示例
-
-```
-用户: "你好"
-AI: "您好！我是VTX AI助手，很高兴为您服务。请告诉我您需要什么帮助？"
-
-用户: "今天天气怎么样？"
-AI: "抱歉，我无法获取实时天气信息，但我可以帮您查找天气预报网站或应用程序。"
-
-用户: "谢谢"
-AI: "不客气！如果还有其他问题，随时欢迎找我聊天。祝您愉快！"
+### AI对话配置
+```python
+# ai_conversation.py
+SYSTEM_PROMPT = "你是Aiker，一个友好的AI助手..."
+SILENCE_THRESHOLD = 1.5  # 静音检测阈值(秒)
+MAX_AUDIO_LENGTH = 10    # 最大音频长度(秒)
 ```
 
-## 🔍 故障排除
+### 音频配置
+```python
+# 音频处理参数
+SAMPLE_RATE = 8000
+CHUNK_SIZE = 1024
+AUDIO_FORMAT = 'ulaw'
+```
+
+## 📊 监控和日志
+
+系统提供详细的日志记录：
+- 📞 SIP信令日志
+- 🎤 音频处理日志
+- 🤖 AI对话日志
+- ⚠️ 错误和警告日志
+
+日志文件位置：`logs/`
+
+## 🐛 故障排除
 
 ### 常见问题
-1. **API密钥错误** - 检查api_keys/目录下的密钥文件
-2. **网络连接问题** - 确认服务器地址和端口配置
-3. **音频问题** - 检查RTP端口是否被占用
-4. **AI功能不可用** - 确认API密钥有效且有足够配额
 
-### 日志查看
-系统运行时会输出详细日志，包括：
-- SIP注册状态
-- 通话建立过程
-- AI对话交互
-- 错误信息
+1. **API密钥错误**
+   - 检查 `.env` 文件中的API密钥
+   - 确认API密钥有效且有足够配额
 
-## 📝 开发说明
+2. **音频质量问题**
+   - 检查网络连接稳定性
+   - 调整音频处理参数
 
-### 文件结构
-```
-vtx-voip/
-├── main_ai.py              # AI对话主程序
-├── main.py                 # 传统音频主程序
-├── ai_conversation.py      # AI对话模块
-├── api_keys/               # API密钥目录
-├── config/                 # 配置文件
-├── requirements.txt        # 依赖包列表
-└── README.md              # 说明文档
+3. **AI回复延迟**
+   - 检查API响应时间
+   - 调整静音检测阈值
+
+### 调试模式
+启用详细日志：
+```python
+DEBUG = True
 ```
 
-### 扩展开发
-- 支持更多AI模型
-- 添加多语言支持
-- 集成更多TTS服务
-- 增加情感分析功能
+## 📈 性能优化
 
-## 📄 许可证
-
-本项目仅供学习和研究使用。
+- 使用SSD存储提升音频处理速度
+- 配置足够的内存用于音频缓冲
+- 优化网络连接减少延迟
+- 定期清理日志文件
 
 ## 🤝 贡献
 
-欢迎提交Issue和Pull Request来改进项目。
+欢迎提交Issue和Pull Request！
+
+## 📄 许可证
+
+MIT License
+
+## 📞 支持
+
+如有问题，请提交Issue或联系开发团队。
 
 ---
 
-**VTX AI Phone System v2.0** - 让电话更智能！🎉 
+**VTX AI Phone System v2.1** - 让AI对话更自然，让语音交互更智能！ 
