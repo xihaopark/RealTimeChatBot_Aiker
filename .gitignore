@@ -212,4 +212,24 @@ grafana_data/
 
 # 临时目录
 temp/
-tmp/ 
+tmp/
+
+# V2 Architecture - AI Models and Large Files
+# Piper TTS models
+services/piper/models/*.onnx
+services/piper/models/*.json
+
+# Vosk STT models  
+services/vosk/models/*
+!services/vosk/models/.gitkeep
+
+# Llama.cpp models
+services/llama.cpp/models/*.gguf
+services/llama.cpp/models/*.bin
+
+# CosyVoice models (if any)
+CosyVoice/
+gpu_env/
+
+# Local AI models directory
+models/ 
