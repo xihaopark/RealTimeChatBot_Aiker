@@ -232,4 +232,10 @@ CosyVoice/
 gpu_env/
 
 # Local AI models directory
-models/ 
+models/
+
+# Virtual environments
+venv_v2/
+
+# Submodules (managed separately)
+llama.cpp/ 
