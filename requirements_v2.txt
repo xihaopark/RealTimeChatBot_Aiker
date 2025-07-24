@@ -1,0 +1,31 @@
+# VTX AI Phone System V2 依赖
+# 使用 llama-cpp-python + Vosk + Piper
+
+# 核心依赖
+python-dotenv>=1.0.0
+requests>=2.28.0
+numpy>=1.21.0
+
+# LLM - llama.cpp Python绑定
+llama-cpp-python>=0.2.20
+torch>=2.0.0  # GPU检测
+
+# STT - Vosk
+vosk>=0.3.45
+soundfile>=0.12.0
+scipy>=1.9.0
+
+# TTS - Piper (通过subprocess调用)
+# Piper是独立二进制文件，不需要Python包
+
+# 音频处理
+pyaudio>=0.2.11  # 可选，用于音频调试
+
+# 网络和并发
+websockets>=10.0  # Vosk WebSocket支持（可选）
+
+# 日志
+colorlog>=6.7.0
+
+# SIP/RTP依赖（来自V1）
+# 这些通常已在V1环境中安装

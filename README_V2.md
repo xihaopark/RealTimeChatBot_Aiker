@@ -1,256 +1,77 @@
-# VTX AI Phone System V2 🚀
+# VTX AI Phone System V2 - 架构说明 🚀
 
-**高性能AI电话系统 - 轻量化重构版本**
+## 📋 概述
 
-## 🎯 核心优势
+VTX AI电话系统V2采用了优化的技术栈组合：**llama-cpp-python + Vosk + Piper**，专门为高性能、低延迟的AI电话服务设计。
 
-### ⚡ 性能提升
-- **10x 启动速度**: 去除重型Python依赖，启动时间从分钟级优化到秒级
-- **3x 并发能力**: 专业分工架构，支持更高并发通话
-- **50% 资源占用**: CPU和内存占用大幅降低
+## 🎯 技术栈选择
 
-### 🛠️ 技术栈升级
-- **STT**: Vosk (替换RealtimeSTT) - 轻量、精准、无音频设备依赖
-- **LLM**: Llama.cpp Server (替换Transformers) - 高并发、量化模型、GPU优化
-- **TTS**: Piper (替换RealtimeTTS) - 极速合成、CPU优化、稳定输出
+### LLM: llama-cpp-python
+- **直接在Python进程内调用llama.cpp**，无需独立server
+- **完美适配Vast.ai容器环境**，无需系统权限
+- **GPU加速支持**，自动检测并使用CUDA
+- **GGUF模型格式**，量化优化，内存占用小
 
-### 🏗️ 架构优化
-- **服务分离**: AI计算与业务逻辑解耦
-- **进程隔离**: 核心服务独立运行，故障隔离
-- **资源共享**: 单个LLM服务器支持多路并发
+### STT: Vosk
+- **轻量级离线语音识别**，启动快速
+- **流式识别**，低延迟
+- **多语言支持**，中英文效果优秀
+- **资源占用低**，适合并发场景
 
-## 📦 快速开始
+### TTS: Piper
+- **极速语音合成**，专为CPU优化
+- **高质量输出**，自然流畅
+- **多语言多音色**，可扩展性强
+- **独立二进制**，性能卓越
 
-### 一键部署
+## 📁 V2项目结构
+
+```
+aiker_v2/                        # V2架构核心目录
+├── app_v2.py                   # 主程序入口
+├── llm_service_llamacpp.py     # llama-cpp-python LLM服务
+├── stt_service.py              # Vosk STT服务
+├── tts_service.py              # Piper TTS服务
+└── call_handler.py             # 通话处理逻辑
+
+services/                        # AI组件目录
+├── piper/                      # Piper TTS
+│   ├── piper                   # 二进制可执行文件
+│   └── models/                 # TTS模型文件
+├── vosk/                       # Vosk STT
+│   └── models/                 # STT模型文件
+└── llama.cpp/                  # LLM相关
+    └── models/                 # GGUF模型文件
+
+requirements_v2.txt             # V2依赖列表
+start_v2.sh                    # 启动脚本
+test_v2.py                     # 测试工具
+```
+
+## 🚀 快速部署
+
+### 1. 安装Python依赖
+
 ```bash
-# 克隆或进入项目目录
-cd RealTimeChatBot_Aiker-1
-
-# 运行自动安装脚本
-./setup_aiker_v2.sh
+pip install -r requirements_v2.txt
 ```
 
-### 手动部署
+### 2. 下载AI模型
 
-#### 1. 系统要求
-- **操作系统**: Linux (Ubuntu 18.04+)
-- **Python**: 3.8+
-- **内存**: 8GB+ (推荐)
-- **磁盘**: 5GB+ 可用空间
-- **GPU**: NVIDIA GPU (可选，推荐用于LLM加速)
-
-#### 2. 安装依赖
+#### LLM模型（必须）
 ```bash
-# 系统依赖
-sudo apt-get update
-sudo apt-get install -y build-essential cmake git wget curl unzip \
-    libffi-dev libssl-dev libasound2-dev libportaudio2 libsndfile1 \
-    python3-dev python3-pip python3-venv
-
-# Python环境
-python3 -m venv venv_v2
-source venv_v2/bin/activate
-pip install -r aiker_v2/requirements.v2.txt
+# 下载Qwen2.5 7B量化模型（推荐）
+cd services/llama.cpp/models
+wget https://huggingface.co/Qwen/Qwen2.5-7B-Instruct-GGUF/resolve/main/qwen2.5-7b-instruct-q4_k_m.gguf
 ```
 
-#### 3. 设置AI服务
+### 3. 启动系统
+
 ```bash
-cd services
-
-# 设置Piper TTS
-./setup_piper.sh
-
-# 设置Llama.cpp (需要编译，耗时较长)
-./setup_llama_cpp.sh
-
-# 设置Vosk STT
-./setup_vosk.sh
+# 启动V2系统
+./start_v2.sh
 ```
-
-#### 4. 配置系统
-```bash
-# 复制配置模板
-cp .env.example .env
-
-# 编辑配置文件
-nano .env
-```
-
-#### 5. 启动系统
-```bash
-./start_aiker_v2.sh
-```
-
-## ⚙️ 配置说明
-
-### 环境变量 (.env)
-```bash
-# VTX服务器配置
-VTX_SERVER=core1-us-lax.myippbx.com
-VTX_PORT=5060
-VTX_DOMAIN=your_domain.myippbx.com
-
-# 分机配置
-EXTENSION_1000_USERNAME=1000
-EXTENSION_1000_PASSWORD=your_password
-```
-
-### AI服务配置
-- **Llama.cpp服务器**: http://127.0.0.1:8080
-- **Piper模型路径**: services/piper/models/
-- **Vosk模型路径**: services/vosk/models/
-
-## 🔧 服务管理
-
-### 启动服务
-```bash
-# 完整启动
-./start_aiker_v2.sh
-
-# 仅启动LLM服务器
-cd services/llama.cpp && ./start_server.sh
-
-# 测试组件
-./test_aiker_v2.sh
-```
-
-### 监控日志
-```bash
-# 主应用日志
-tail -f logs/aiker_v2.log
-
-# LLM服务器日志
-tail -f logs/llama_cpp.log
-```
-
-### 性能调优
-
-#### GPU配置
-```bash
-# 检查GPU状态
-nvidia-smi
-
-# 调整GPU层数 (在llama.cpp/start_server.sh中)
-GPU_LAYERS=35  # 根据显存调整
-```
-
-#### 并发配置
-```python
-# 在aiker_v2/settings.py中调整
-MAX_CONCURRENT_CALLS=20  # 最大并发通话数
-CALL_TIMEOUT_SECONDS=1800  # 通话超时时间
-```
-
-## 📊 性能基准
-
-### V1 vs V2 对比
-
-| 指标 | V1 (RealtimeSTT/TTS + Transformers) | V2 (Vosk + Llama.cpp + Piper) | 提升 |
-|------|--------------------------------------|--------------------------------|------|
-| 启动时间 | 120-180s | 10-15s | **10x** |
-| 内存占用 | 8-12GB | 4-6GB | **50%** |
-| 并发通话 | 3-5路 | 15-20路 | **4x** |
-| TTS延迟 | 2-3s | 0.3-0.5s | **6x** |
-| STT精度 | 85-90% | 90-95% | **+5%** |
-
-### 资源占用
-- **CPU**: 4-8核 (推荐)
-- **内存**: 4-6GB (运行时)
-- **显存**: 4-6GB (GPU模式)
-- **磁盘**: 3-5GB (模型文件)
-
-## 🔍 故障排除
-
-### 常见问题
-
-#### 1. Llama.cpp编译失败
-```bash
-# 安装必要的编译工具
-sudo apt-get install build-essential cmake
-
-# 检查CUDA环境
-nvcc --version
-```
-
-#### 2. Piper模型下载失败
-```bash
-# 手动下载模型
-cd services/piper/models
-wget https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/zh/zh_CN/huayan/medium/zh_CN-huayan-medium.onnx
-```
-
-#### 3. Vosk STT不工作
-```bash
-# 检查模型文件
-ls -la services/vosk/models/
-
-# 测试STT服务
-cd services/vosk && python test_vosk.py
-```
-
-#### 4. SIP注册失败
-```bash
-# 检查网络连接
-ping core1-us-lax.myippbx.com
-
-# 检查防火墙设置
-sudo ufw status
-
-# 检查端口占用
-netstat -tulpn | grep :5060
-```
-
-### 调试模式
-```bash
-# 启用详细日志
-export LOG_LEVEL=DEBUG
-
-# 启动调试模式
-python aiker_v2/app.py --debug
-```
-
-## 🛡️ 安全建议
-
-1. **网络安全**
-   - 配置防火墙，仅开放必要端口
-   - 使用强密码和安全的SIP认证
-
-2. **系统安全**
-   - 定期更新系统和依赖包
-   - 限制文件系统权限
-
-3. **监控建议**
-   - 设置日志轮转
-   - 监控系统资源使用
-   - 配置告警机制
-
-## 📈 扩展功能
-
-### 高可用部署
-- 负载均衡配置
-- 多实例部署
-- 数据库集群
-
-### 监控集成
-- Prometheus metrics
-- Grafana dashboard
-- 实时性能监控
-
-### 自定义开发
-- 业务逻辑插件
-- 自定义TTS语音
-- 多语言模型支持
-
-## 🤝 技术支持
-
-- **文档**: [项目Wiki](https://github.com/your-repo/wiki)
-- **问题反馈**: [GitHub Issues](https://github.com/your-repo/issues)
-- **技术交流**: [Discord社区](https://discord.gg/your-channel)
-
-## 📄 许可证
-
-本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
 
 ---
 
-**VTX AI Phone System V2** - 让AI电话客服更快、更稳、更强！🚀
+**V2架构 = 高性能 + 易部署 + 稳定可靠** 🎉

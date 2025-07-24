@@ -5,28 +5,28 @@
 
 **🚀 V2重大升级完成！现已支持两种部署模式**
 
-## V2 一体化架构 (Vast.ai容器环境) ⭐ 推荐
+## V2 优化架构 (Vast.ai容器环境) ⭐ 推荐
 
-专门为Vast.ai容器环境设计，所有AI服务运行在单一进程内。
+专门为Vast.ai容器环境优化，使用进程内调用的高性能组件。
 
 ### 核心优势
 - **✅ 完美适配Vast.ai**: 无需systemd、dockerd等系统权限
-- **🚀 一键启动**: 单一Python进程，60秒内完成启动
+- **🚀 llama.cpp直接调用**: 通过llama-cpp-python库在进程内运行
 - **💾 GPU加速**: 充分利用Vast.ai的GPU资源
-- **🔧 零配置**: 自动处理音频设备、CUDA环境问题
+- **🔧 技术栈统一**: Vosk + Piper + llama.cpp的最佳组合
 
-### 技术栈 (一体化)
-- **STT**: RealtimeSTT + Whisper (进程内加载)
-- **LLM**: Transformers + 4bit量化 (进程内加载)
-- **TTS**: RealtimeTTS + Coqui (进程内加载)
+### 技术栈 (Vast.ai优化)
+- **STT**: Vosk (轻量级，进程内加载)
+- **LLM**: llama-cpp-python (进程内调用，无需server)
+- **TTS**: Piper (通过subprocess调用二进制)
 
 ### 部署命令 (Vast.ai)
 ```bash
 # 测试环境
-python test_integrated_v2.py
+python test_v2.py
 
 # 启动系统
-./start_v2_integrated.sh
+./start_v2.sh
 ```
 
 ## V2 分离架构 (完整Linux服务器)
