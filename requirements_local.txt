@@ -1,0 +1,21 @@
+# Local AI dependencies
+# RealtimeSTT and RealtimeTTS
+RealtimeSTT[faster-whisper]
+RealtimeTTS[coqui,silero]
+
+# Local LLM
+transformers
+accelerate
+bitsandbytes
+optimum
+torch
+
+# Audio processing
+scipy
+numpy
+librosa
+
+# Existing dependencies
+python-dotenv
+requests
+pydub
