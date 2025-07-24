@@ -1,0 +1,261 @@
+{
+  "contexts": {
+    "sip_protocol": {
+      "description": "SIP协议相关上下文",
+      "files": [
+        "main.py:EnhancedSIPClient",
+        "config/settings.py:NetworkConfig",
+        "docs/PROTECTED_APIS.md#sip-protocol",
+        "tests/test_sip_compatibility.py"
+      ],
+      "dependencies": ["network_config", "audio_codec"],
+      "constraints": [
+        "不可修改SIP消息格式",
+        "保持RFC 3261兼容性",
+        "维持与VTX PBX的兼容性"
+      ],
+      "protection_level": "ABSOLUTE"
+    },
+    
+    "rtp_audio": {
+      "description": "RTP音频传输上下文",
+      "files": [
+        "main.py:RTPHandler",
+        "main.py:G711Codec",
+        "welcome.ulaw",
+        "tests/test_rtp_stream.py"
+      ],
+      "dependencies": ["audio_codec", "network_config"],
+      "constraints": [
+        "保持μ-law音频格式",
+        "维持8kHz采样率",
+        "保持160字节帧大小",
+        "符合RFC 3550标准"
+      ],
+      "protection_level": "ABSOLUTE"
+    },
+    
+    "local_stt": {
+      "description": "本地语音识别上下文",
+      "files": [
+        "src/local_engines/stt_engine.py",
+        "src/adapters/stt_adapter.py",
+        "ai_conversation.py:_speech_to_text",
+        "tests/test_local_stt.py"
+      ],
+      "dependencies": ["audio_processing", "ai_conversation"],
+      "constraints": [
+        "保持音频格式兼容",
+        "延迟<500ms",
+        "保持接口兼容性",
+        "支持中文识别"
+      ],
+      "protection_level": "MODERATE",
+      "performance_targets": {
+        "latency": "< 500ms",
+        "accuracy": "> 90%",
+        "memory": "< 1GB"
+      }
+    },
+    
+    "local_tts": {
+      "description": "本地语音合成上下文",
+      "files": [
+        "src/local_engines/tts_engine.py",
+        "src/adapters/tts_adapter.py",
+        "ai_conversation.py:_text_to_speech",
+        "main.py:_linear_to_ulaw",
+        "tests/test_local_tts.py"
+      ],
+      "dependencies": ["audio_processing", "ai_conversation"],
+      "constraints": [
+        "输出必须是μ-law格式",
+        "延迟<300ms",
+        "保持接口兼容性",
+        "支持中文合成"
+      ],
+      "protection_level": "MODERATE",
+      "performance_targets": {
+        "latency": "< 300ms",
+        "quality": "自然流畅",
+        "memory": "< 800MB"
+      }
+    },
+    
+    "local_llm": {
+      "description": "本地对话引擎上下文",
+      "files": [
+        "src/local_engines/llm_engine.py",
+        "src/adapters/llm_adapter.py",
+        "ai_conversation.py:_get_ai_response",
+        "onesuite-business-data.json",
+        "tests/test_local_llm.py"
+      ],
+      "dependencies": ["business_data", "ai_conversation"],
+      "constraints": [
+        "保持业务逻辑兼容",
+        "集成OneSuite知识库",
+        "保持对话历史",
+        "支持中文对话"
+      ],
+      "protection_level": "MODERATE",
+      "performance_targets": {
+        "latency": "< 1000ms",
+        "accuracy": "业务相关",
+        "memory": "< 4GB"
+      }
+    },
+    
+    "ai_conversation": {
+      "description": "AI对话管理上下文",
+      "files": [
+        "ai_conversation.py:AIConversationManager",
+        "onesuite-business-data.json",
+        "tests/test_ai_conversation.py"
+      ],
+      "dependencies": ["local_stt", "local_tts", "local_llm"],
+      "constraints": [
+        "保持现有接口",
+        "维持对话流程",
+        "保持业务逻辑"
+      ],
+      "protection_level": "HIGH"
+    },
+    
+    "audio_processing": {
+      "description": "音频处理通用上下文",
+      "files": [
+        "main.py:G711Codec",
+        "main.py:RTPHandler._handle_audio_data",
+        "ai_conversation.py:process_audio_input"
+      ],
+      "dependencies": ["rtp_audio"],
+      "constraints": [
+        "保持音频格式一致性",
+        "维持采样率和帧大小",
+        "保持编解码兼容性"
+      ],
+      "protection_level": "HIGH"
+    },
+    
+    "business_data": {
+      "description": "业务数据上下文",
+      "files": [
+        "onesuite-business-data.json",
+        "ai_conversation.py:_load_onesuite_data",
+        "tests/test_business_data.py"
+      ],
+      "dependencies": ["ai_conversation"],
+      "constraints": [
+        "保持数据格式",
+        "维持业务逻辑",
+        "保持查询接口"
+      ],
+      "protection_level": "MODERATE"
+    },
+    
+    "network_config": {
+      "description": "网络配置上下文",
+      "files": [
+        "config/settings.py",
+        "env.example",
+        ".env"
+      ],
+      "dependencies": [],
+      "constraints": [
+        "保持SIP/RTP端口配置",
+        "维持网络参数",
+        "保持认证配置"
+      ],
+      "protection_level": "HIGH"
+    }
+  },
+  
+  "context_rules": {
+    "auto_include": [
+      ".ai/protected_modules.yaml",
+      ".ai/system_prompt.md",
+      "docs/ENGINEERING_PROTOCOL.md"
+    ],
+    "max_context_size": 100000,
+    "priority_order": ["constraints", "dependencies", "files", "performance_targets"],
+    "mandatory_checks": [
+      "protection_level_validation",
+      "interface_compatibility_check",
+      "performance_constraint_check"
+    ]
+  },
+  
+  "task_contexts": {
+    "implement_local_stt": {
+      "primary_context": "local_stt",
+      "required_contexts": ["audio_processing", "ai_conversation"],
+      "optional_contexts": ["sip_protocol", "rtp_audio"],
+      "deliverables": [
+        "src/local_engines/stt_engine.py",
+        "src/adapters/stt_adapter.py",
+        "tests/test_local_stt.py"
+      ]
+    },
+    
+    "implement_local_tts": {
+      "primary_context": "local_tts",
+      "required_contexts": ["audio_processing", "ai_conversation", "rtp_audio"],
+      "optional_contexts": ["sip_protocol"],
+      "deliverables": [
+        "src/local_engines/tts_engine.py",
+        "src/adapters/tts_adapter.py",
+        "tests/test_local_tts.py"
+      ]
+    },
+    
+    "implement_local_llm": {
+      "primary_context": "local_llm",
+      "required_contexts": ["business_data", "ai_conversation"],
+      "optional_contexts": ["local_stt", "local_tts"],
+      "deliverables": [
+        "src/local_engines/llm_engine.py",
+        "src/adapters/llm_adapter.py",
+        "tests/test_local_llm.py"
+      ]
+    },
+    
+    "debug_sip_issue": {
+      "primary_context": "sip_protocol",
+      "required_contexts": ["network_config", "rtp_audio"],
+      "optional_contexts": ["audio_processing"],
+      "constraints": [
+        "只能查看，不能修改",
+        "必须保持协议兼容性"
+      ]
+    },
+    
+    "optimize_performance": {
+      "primary_context": "ai_conversation",
+      "required_contexts": ["local_stt", "local_tts", "local_llm"],
+      "optional_contexts": ["audio_processing"],
+      "focus": "性能优化，不改变接口"
+    }
+  },
+  
+  "validation_rules": {
+    "context_loading": {
+      "max_files_per_context": 10,
+      "max_total_context_size": 200000,
+      "required_metadata": ["protection_level", "constraints"]
+    },
+    
+    "modification_checks": {
+      "pre_modification": [
+        "check_protection_level",
+        "validate_interface_compatibility",
+        "verify_performance_constraints"
+      ],
+      "post_modification": [
+        "run_compatibility_tests",
+        "validate_performance_metrics",
+        "check_interface_integrity"
+      ]
+    }
+  }
+} 

@@ -1,0 +1,68 @@
+# AI服务后端配置文件
+# 用于控制STT, TTS, LLM服务的来源 (API vs. 本地)
+
+ai_backend:
+  # 当前运行模式: "api", "local", "hybrid"
+  # api: 全部使用云端API
+  # local: 全部使用本地引擎
+  # hybrid: 混合模式，根据负载或配置决定
+  mode: "api"
+
+  # 本地化引擎配置
+  local:
+    stt:
+      # 模型名称或路径
+      model: "whisper-large-v3"
+      # 推理设备 (cuda:0, cuda:1, cpu)
+      device: "cuda:0"
+      # 量化类型 (none, gptq-4bit, int8)
+      quantization: "none"
+      
+    tts:
+      # 模型类型 (xtts-v2, paddlespeech, edgetts)
+      model: "xtts-v2"
+      # 克隆的声音模板路径
+      voice_clone_path: "voices/anna_su.wav"
+      device: "cuda:0"
+      
+    llm:
+      # 模型名称或路径
+      model: "chatglm3-6b"
+      # 量化类型
+      quantization: "gptq-4bit"
+      # 使用的推理服务器 (vllm, tgi, llama.cpp, none)
+      inference_server: "vllm"
+      # RAG系统配置
+      rag:
+        enabled: true
+        embedding_model: "BAAI/bge-large-zh-v1.5"
+        vectordb_path: "data/chroma_db"
+
+  # 混合模式配置
+  hybrid:
+    # 是否在本地引擎失败时回退到API
+    fallback_to_api: true
+    
+    # 触发API回退的GPU利用率阈值 (0.0 to 1.0)
+    # 当GPU利用率超过80%时，新请求将使用API
+    gpu_utilization_threshold: 0.8
+    
+    # 优先使用本地引擎的服务列表
+    prefer_local: ["stt", "tts"]
+    
+    # 优先使用API的服务列表
+    prefer_api: ["llm"]
+
+  # API引擎配置 (用于API模式或回退)
+  api:
+    # API超时时间 (秒)
+    timeout: 15.0
+    
+    # 重试次数
+    retry_attempts: 3
+    
+    # 各服务API的密钥文件路径
+    keys:
+      deepgram: "api_keys/deepgram.key"
+      elevenlabs: "api_keys/elevenlabs.key"
+      openai: "api_keys/openai.key" 

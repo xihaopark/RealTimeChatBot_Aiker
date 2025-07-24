@@ -1,0 +1,40 @@
+# 协议常量配置文件
+#
+# 警告: 此文件中的参数被《底层协议工程守则》严格锁定。
+# 任何未经授权的修改都将导致兼容性测试失败和代码提交被拒绝。
+#
+
+# SIP (Session Initiation Protocol) 相关常量
+SIP:
+  # SIP标准通信端口
+  PORT: 5060
+  
+  # SIP协议版本
+  VERSION: "SIP/2.0"
+
+# RTP (Real-time Transport Protocol) 相关常量
+RTP:
+  # RTP媒体流传输端口范围
+  # 注意: 虽然范围是固定的，但具体使用的端口是动态分配的
+  PORT_RANGE: [10000, 10500]
+  
+  # RTP载荷类型定义 (遵循RFC 3551)
+  # PCMU (μ-law) 编码
+  PAYLOAD_TYPE_PCMU: 0
+  
+  # PCMA (A-law) 编码
+  PAYLOAD_TYPE_PCMA: 8
+
+# 音频处理相关常量
+AUDIO:
+  # 音频采样率 (Hz)
+  # 8000Hz 是电话系统(PSTN)的标准
+  SAMPLE_RATE: 8000
+  
+  # RTP音频帧大小 (Bytes)
+  # 160字节对应 8000Hz * 20ms 的采样数据
+  FRAME_SIZE: 160
+  
+  # 默认音频编码格式
+  # "mulaw" 对应 G.711 μ-law
+  ENCODING: "mulaw" 

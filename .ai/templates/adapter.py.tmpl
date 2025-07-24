@@ -1,0 +1,373 @@
+#!/usr/bin/env python3
+"""
+{FEATURE_TYPE}适配器模板
+生成时间: {TIMESTAMP}
+功能类型: {FEATURE_TYPE}
+"""
+
+import logging
+import time
+from typing import Any, Optional, Dict, Union
+from abc import ABC, abstractmethod
+
+# 导入本地引擎
+from src.local_engines.{feature_type}_engine import Local{FEATURE_TYPE}Engine
+
+class Base{FEATURE_TYPE}Adapter(ABC):
+    """基础适配器类"""
+    
+    def __init__(self, use_local: bool = True, config: Dict[str, Any] = None):
+        self.use_local = use_local
+        self.config = config or {}
+        self.logger = logging.getLogger(f"{FEATURE_TYPE}Adapter")
+        
+        # 性能监控
+        self.performance_stats = {
+            "total_requests": 0,
+            "local_requests": 0,
+            "api_requests": 0,
+            "fallback_count": 0,
+            "avg_latency": 0.0,
+            "error_count": 0
+        }
+        
+        # 初始化引擎
+        self._initialize_engines()
+    
+    @abstractmethod
+    def _initialize_engines(self):
+        """初始化引擎（子类实现）"""
+        pass
+    
+    @abstractmethod
+    def process(self, *args, **kwargs) -> Any:
+        """处理请求（子类实现）"""
+        pass
+    
+    def _update_stats(self, is_local: bool, latency: float, success: bool):
+        """更新统计信息"""
+        self.performance_stats["total_requests"] += 1
+        
+        if is_local:
+            self.performance_stats["local_requests"] += 1
+        else:
+            self.performance_stats["api_requests"] += 1
+        
+        if not success:
+            self.performance_stats["error_count"] += 1
+        
+        # 更新平均延迟
+        total_requests = self.performance_stats["total_requests"]
+        current_avg = self.performance_stats["avg_latency"]
+        self.performance_stats["avg_latency"] = (
+            (current_avg * (total_requests - 1) + latency) / total_requests
+        )
+    
+    def get_performance_stats(self) -> Dict[str, Any]:
+        """获取性能统计"""
+        return self.performance_stats.copy()
+    
+    def reset_performance_stats(self):
+        """重置性能统计"""
+        self.performance_stats = {
+            "total_requests": 0,
+            "local_requests": 0,
+            "api_requests": 0,
+            "fallback_count": 0,
+            "avg_latency": 0.0,
+            "error_count": 0
+        }
+
+class {FEATURE_TYPE}Adapter(Base{FEATURE_TYPE}Adapter):
+    """
+    {FEATURE_TYPE}适配器
+    
+    支持本地引擎和API引擎的无缝切换
+    当本地引擎不可用时，自动回退到API引擎
+    """
+    
+    def __init__(self, use_local: bool = True, config: Dict[str, Any] = None):
+        # 默认配置
+        default_config = {
+            "local_engine": {
+                {LOCAL_ENGINE_CONFIG}
+            },
+            "api_engine": {
+                {API_ENGINE_CONFIG}
+            },
+            "fallback_enabled": True,
+            "fallback_timeout": 5.0,
+            "retry_attempts": 3
+        }
+        
+        if config:
+            default_config.update(config)
+        
+        super().__init__(use_local, default_config)
+    
+    def _initialize_engines(self):
+        """初始化本地和API引擎"""
+        self.local_engine = None
+        self.api_engine = None
+        
+        # 初始化本地引擎
+        if self.use_local:
+            try:
+                self.local_engine = Local{FEATURE_TYPE}Engine(
+                    model_path=self.config["local_engine"]["model_path"],
+                    config=self.config["local_engine"]
+                )
+                self.local_engine.initialize()
+                self.logger.info("本地{FEATURE_TYPE}引擎初始化成功")
+            except Exception as e:
+                self.logger.error(f"本地{FEATURE_TYPE}引擎初始化失败: {e}")
+                if not self.config.get("fallback_enabled", True):
+                    raise
+        
+        # 初始化API引擎（作为备用）
+        if self.config.get("fallback_enabled", True) or not self.use_local:
+            try:
+                self.api_engine = self._create_api_engine()
+                self.logger.info("API{FEATURE_TYPE}引擎初始化成功")
+            except Exception as e:
+                self.logger.error(f"API{FEATURE_TYPE}引擎初始化失败: {e}")
+                if not self.use_local:
+                    raise
+    
+    def _create_api_engine(self):
+        """创建API引擎"""
+        {API_ENGINE_CREATION}
+    
+    def process(self, {PROCESS_ARGS}) -> {RETURN_TYPE}:
+        """
+        处理{FEATURE_TYPE}请求
+        
+        Args:
+            {PROCESS_ARGS_DOC}
+            
+        Returns:
+            {RETURN_TYPE_DOC}
+        """
+        start_time = time.time()
+        result = None
+        is_local = False
+        success = False
+        
+        # 尝试本地引擎
+        if self.use_local and self.local_engine:
+            try:
+                result = self._process_local({PROCESS_CALL_ARGS})
+                is_local = True
+                success = True
+                self.logger.debug("本地{FEATURE_TYPE}处理成功")
+            except Exception as e:
+                self.logger.warning(f"本地{FEATURE_TYPE}处理失败: {e}")
+                if not self.config.get("fallback_enabled", True):
+                    raise
+        
+        # 回退到API引擎
+        if not success and self.api_engine:
+            try:
+                result = self._process_api({PROCESS_CALL_ARGS})
+                is_local = False
+                success = True
+                self.performance_stats["fallback_count"] += 1
+                self.logger.debug("API{FEATURE_TYPE}处理成功")
+            except Exception as e:
+                self.logger.error(f"API{FEATURE_TYPE}处理失败: {e}")
+                raise
+        
+        # 更新统计
+        latency = time.time() - start_time
+        self._update_stats(is_local, latency, success)
+        
+        if not success:
+            raise RuntimeError("所有{FEATURE_TYPE}引擎都失败")
+        
+        return result
+    
+    def _process_local(self, {PROCESS_ARGS}) -> {RETURN_TYPE}:
+        """使用本地引擎处理"""
+        {LOCAL_PROCESS_CODE}
+    
+    def _process_api(self, {PROCESS_ARGS}) -> {RETURN_TYPE}:
+        """使用API引擎处理"""
+        {API_PROCESS_CODE}
+    
+    def switch_to_local(self, model_path: str = None):
+        """切换到本地引擎"""
+        if model_path:
+            self.config["local_engine"]["model_path"] = model_path
+        
+        self.use_local = True
+        self._initialize_engines()
+        self.logger.info("已切换到本地{FEATURE_TYPE}引擎")
+    
+    def switch_to_api(self):
+        """切换到API引擎"""
+        self.use_local = False
+        self.logger.info("已切换到API{FEATURE_TYPE}引擎")
+    
+    def is_local_available(self) -> bool:
+        """检查本地引擎是否可用"""
+        return self.local_engine is not None and self.local_engine.is_initialized
+    
+    def is_api_available(self) -> bool:
+        """检查API引擎是否可用"""
+        return self.api_engine is not None
+    
+    def get_engine_status(self) -> Dict[str, Any]:
+        """获取引擎状态"""
+        return {
+            "current_mode": "local" if self.use_local else "api",
+            "local_available": self.is_local_available(),
+            "api_available": self.is_api_available(),
+            "fallback_enabled": self.config.get("fallback_enabled", True),
+            "performance_stats": self.get_performance_stats()
+        }
+    
+    def cleanup(self):
+        """清理资源"""
+        if self.local_engine:
+            self.local_engine.cleanup()
+        
+        if self.api_engine and hasattr(self.api_engine, 'cleanup'):
+            self.api_engine.cleanup()
+        
+        self.logger.info("{FEATURE_TYPE}适配器资源清理完成")
+
+# 单例模式的全局适配器
+class Global{FEATURE_TYPE}Adapter:
+    """全局{FEATURE_TYPE}适配器单例"""
+    
+    _instance = None
+    _adapter = None
+    
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+    
+    def initialize(self, use_local: bool = True, config: Dict[str, Any] = None):
+        """初始化全局适配器"""
+        if self._adapter is None:
+            self._adapter = {FEATURE_TYPE}Adapter(use_local, config)
+        return self._adapter
+    
+    def get_adapter(self) -> {FEATURE_TYPE}Adapter:
+        """获取适配器实例"""
+        if self._adapter is None:
+            raise RuntimeError("适配器未初始化，请先调用initialize()")
+        return self._adapter
+    
+    def process(self, {PROCESS_ARGS}) -> {RETURN_TYPE}:
+        """处理请求"""
+        return self.get_adapter().process({PROCESS_CALL_ARGS})
+
+# 便利函数
+def get_global_{feature_type}_adapter() -> {FEATURE_TYPE}Adapter:
+    """获取全局{FEATURE_TYPE}适配器"""
+    return Global{FEATURE_TYPE}Adapter().get_adapter()
+
+def process_{feature_type}({PROCESS_ARGS}) -> {RETURN_TYPE}:
+    """全局{FEATURE_TYPE}处理函数"""
+    return get_global_{feature_type}_adapter().process({PROCESS_CALL_ARGS})
+
+# 性能测试工具
+class {FEATURE_TYPE}AdapterTester:
+    """适配器性能测试工具"""
+    
+    def __init__(self, adapter: {FEATURE_TYPE}Adapter):
+        self.adapter = adapter
+        self.test_results = []
+    
+    def run_performance_test(self, test_data: list, iterations: int = 100):
+        """运行性能测试"""
+        print(f"开始{FEATURE_TYPE}适配器性能测试...")
+        
+        # 重置统计
+        self.adapter.reset_performance_stats()
+        
+        # 测试本地引擎
+        if self.adapter.is_local_available():
+            print("测试本地引擎...")
+            self.adapter.switch_to_local()
+            self._run_test_batch(test_data, iterations, "local")
+        
+        # 测试API引擎
+        if self.adapter.is_api_available():
+            print("测试API引擎...")
+            self.adapter.switch_to_api()
+            self._run_test_batch(test_data, iterations, "api")
+        
+        # 生成报告
+        return self._generate_report()
+    
+    def _run_test_batch(self, test_data: list, iterations: int, engine_type: str):
+        """运行测试批次"""
+        for i in range(iterations):
+            for data in test_data:
+                start_time = time.time()
+                try:
+                    result = self.adapter.process({TEST_PROCESS_ARGS})
+                    success = True
+                except Exception as e:
+                    result = None
+                    success = False
+                
+                self.test_results.append({
+                    "engine_type": engine_type,
+                    "iteration": i,
+                    "latency": time.time() - start_time,
+                    "success": success,
+                    "data_size": len(str(data))
+                })
+    
+    def _generate_report(self) -> Dict[str, Any]:
+        """生成测试报告"""
+        local_results = [r for r in self.test_results if r["engine_type"] == "local"]
+        api_results = [r for r in self.test_results if r["engine_type"] == "api"]
+        
+        def analyze_results(results):
+            if not results:
+                return None
+            
+            latencies = [r["latency"] for r in results]
+            success_count = sum(1 for r in results if r["success"])
+            
+            return {
+                "total_requests": len(results),
+                "success_rate": success_count / len(results),
+                "avg_latency": sum(latencies) / len(latencies),
+                "max_latency": max(latencies),
+                "min_latency": min(latencies),
+                "p95_latency": sorted(latencies)[int(len(latencies) * 0.95)] if latencies else 0,
+                "p99_latency": sorted(latencies)[int(len(latencies) * 0.99)] if latencies else 0
+            }
+        
+        return {
+            "local_engine": analyze_results(local_results),
+            "api_engine": analyze_results(api_results),
+            "adapter_stats": self.adapter.get_performance_stats()
+        }
+
+if __name__ == "__main__":
+    # 示例使用
+    config = {
+        {EXAMPLE_CONFIG}
+    }
+    
+    # 创建适配器
+    adapter = {FEATURE_TYPE}Adapter(use_local=True, config=config)
+    
+    # 测试处理
+    test_input = {EXAMPLE_INPUT}
+    result = adapter.process(test_input)
+    print(f"处理结果: {result}")
+    
+    # 获取状态
+    status = adapter.get_engine_status()
+    print(f"引擎状态: {status}")
+    
+    # 清理资源
+    adapter.cleanup() 

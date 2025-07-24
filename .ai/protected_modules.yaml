@@ -1,0 +1,165 @@
+# 受保护模块配置文件
+# 定义绝对不可修改的代码模块和参数
+
+protected_modules:
+  # SIP信令层 - 绝对保护
+  - module: main.EnhancedSIPClient
+    file_path: main.py
+    line_range: [342, 1151]
+    protection_level: ABSOLUTE
+    reason: "核心SIP协议实现，修改会破坏与VTX PBX的兼容性"
+    allowed_operations: []
+    methods:
+      - __init__
+      - start
+      - initial_register
+      - refresh_register
+      - _handle_invite
+      - _handle_bye
+      - _handle_options
+      - _handle_cancel
+      - _receive_loop
+      - _handle_response
+      - _handle_request
+      - _build_register
+      - _build_auth_header
+      - _parse_auth_header
+    
+  # RTP音频处理 - 绝对保护
+  - module: main.RTPHandler
+    file_path: main.py
+    line_range: [100, 252]
+    protection_level: ABSOLUTE
+    reason: "RTP音频流处理，符合RFC 3550标准，修改会导致音频传输失败"
+    allowed_operations: []
+    methods:
+      - __init__
+      - start
+      - stop
+      - send_audio
+      - _build_rtp_packet
+      - _parse_rtp_packet
+      - _receive_loop
+      - _handle_audio_data
+    
+  # G.711编解码器 - 绝对保护
+  - module: main.G711Codec
+    file_path: main.py
+    line_range: [253, 341]
+    protection_level: ABSOLUTE
+    reason: "G.711编解码标准实现，电信级标准不可更改"
+    allowed_operations: []
+    methods:
+      - linear_to_ulaw
+      - ulaw_to_linear
+      - generate_dtmf
+      - generate_test_pattern
+    
+  # SDP协议解析 - 绝对保护
+  - module: main.SDPParser
+    file_path: main.py
+    line_range: [30, 99]
+    protection_level: ABSOLUTE
+    reason: "SDP协议解析，媒体协商核心组件"
+    allowed_operations: []
+    methods:
+      - parse
+      - build
+    
+  # 网络配置 - 高级保护
+  - module: config.settings.NetworkConfig
+    file_path: config/settings.py
+    protection_level: HIGH
+    reason: "网络配置影响通信协议"
+    allowed_operations: ["add_parameter", "modify_non_critical"]
+
+# 受保护常量
+protected_constants:
+  SAMPLE_RATE: 
+    value: 8000
+    location: "multiple files"
+    protection: ABSOLUTE
+    reason: "电话标准采样率，G.711标准要求"
+    
+  FRAME_SIZE:
+    value: 160
+    location: "multiple files"
+    protection: ABSOLUTE
+    reason: "RTP标准帧大小，20ms @ 8kHz"
+    
+  SIP_PORT:
+    value: 5060
+    location: "config/settings.py"
+    protection: ABSOLUTE
+    reason: "SIP标准端口，RFC 3261规定"
+    
+  RTP_PORT_RANGE:
+    value: [10000, 10500]
+    location: "config/settings.py"
+    protection: HIGH
+    reason: "RTP端口范围，可调整但需谨慎"
+    
+  ULAW_BIAS:
+    value: 132
+    location: "main.py:G711Codec"
+    protection: ABSOLUTE
+    reason: "μ-law编码偏置值，ITU-T G.711标准"
+
+# 受保护接口
+protected_interfaces:
+  - interface: AIConversationManager._speech_to_text
+    signature: "_speech_to_text(self, audio_data: bytes) -> str"
+    reason: "STT接口，保持兼容性"
+    
+  - interface: AIConversationManager._text_to_speech
+    signature: "_text_to_speech(self, text: str) -> Optional[bytes]"
+    reason: "TTS接口，必须返回μ-law格式"
+    
+  - interface: AIConversationManager._get_ai_response
+    signature: "_get_ai_response(self, user_text: str) -> str"
+    reason: "LLM接口，保持业务逻辑兼容"
+
+# 受保护文件
+protected_files:
+  - file: main.py
+    sections:
+      - name: "SIP/RTP Core"
+        lines: [1, 341]
+        protection: ABSOLUTE
+        
+  - file: config/settings.py
+    sections:
+      - name: "Network Configuration"
+        protection: HIGH
+        
+  - file: welcome.ulaw
+    protection: ABSOLUTE
+    reason: "标准音频文件，格式不可更改"
+
+# 检查规则
+validation_rules:
+  - rule: "no_direct_modification"
+    description: "不允许直接修改受保护模块"
+    applies_to: ["ABSOLUTE", "HIGH"]
+    
+  - rule: "interface_compatibility"
+    description: "必须保持接口兼容性"
+    applies_to: ["protected_interfaces"]
+    
+  - rule: "audio_format_preservation"
+    description: "必须保持音频格式"
+    applies_to: ["G711Codec", "RTPHandler"]
+    
+  - rule: "protocol_compliance"
+    description: "必须符合通信协议标准"
+    applies_to: ["SIP", "RTP", "SDP"]
+
+# 异常处理
+exceptions:
+  - exception: "emergency_fix"
+    description: "紧急修复，需要特殊审批"
+    approval_required: true
+    
+  - exception: "performance_optimization"
+    description: "性能优化，不改变接口"
+    conditions: ["preserve_interface", "maintain_compatibility"] 

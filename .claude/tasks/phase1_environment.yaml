@@ -1,0 +1,25 @@
+phase: "Environment Setup"
+tasks:
+  - id: "gpu-check"
+    name: "GPU Availability Check"
+    command: |
+      echo "🔍 Checking GPU availability..."
+      nvidia-smi
+      python -c "import torch; print(f'PyTorch CUDA: {torch.cuda.is_available()}')"
+      python -c "import torch; print(f'GPU Count: {torch.cuda.device_count()}')"
+      
+  - id: "cuda-setup"
+    name: "CUDA Environment Setup"
+    steps:
+      - "Install NVIDIA Driver 535+"
+      - "Install CUDA 12.1"
+      - "Install cuDNN 8.9"
+      - "Set environment variables in .env"
+    
+  - id: "python-env"
+    name: "Python Environment Setup"
+    command: |
+      python -m venv venv_local
+      source venv_local/bin/activate
+      pip install --upgrade pip
+      pip install -r requirements_local.txt 

@@ -1,0 +1,46 @@
+# VTX AI Phone System - CPU Only & API Dependencies
+
+# 核心依赖
+asyncio
+aiohttp>=3.8.0
+numpy>=1.21.0
+
+# 语音识别 (API)
+deepgram-sdk>=2.0.0
+
+# 语音合成 (API)
+edge-tts>=6.0.0
+elevenlabs>=0.2.0
+
+# AI对话 (API)
+openai>=1.0.0
+
+# 音频处理 (CPU only)
+pydub>=0.25.0
+
+# 网络协议
+sip>=0.1.0
+
+# 工具库
+python-dotenv>=0.19.0
+pydantic>=1.10.0
+dataclasses-json>=0.5.0
+
+# 日志
+loguru>=0.6.0
+
+# 音频格式转换
+ffmpeg-python>=0.2.0
+
+# 网络请求
+requests>=2.25.0
+
+# 开发工具
+pytest>=7.0.0
+pytest-asyncio>=0.20.0
+black>=22.0.0
+flake8>=4.0.0
+
+# 可选依赖
+redis>=4.5.0  # 分布式部署
+celery>=5.2.0  # 任务队列 

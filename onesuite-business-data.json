@@ -1,0 +1,196 @@
+{
+  "company": {
+    "name": "OneSuite Business",
+    "established": "1999",
+    "type": "虚拟电话系统服务提供商",
+    "mission": "以最低的价格为用户提供最大的电信便利",
+    "tagline": "最实惠的虚拟电话系统",
+    "description": "OneSuite Business是一个简单易用的移动虚拟电话系统，提供第二个电话号码，包括通话、短信、自定义问候语、自动菜单提示、分机、语音信箱等功能。"
+  },
+  
+  "services": {
+    "core_service": {
+      "name": "虚拟PBX系统",
+      "description": "行业首个按需付费的虚拟PBX，为企业主和个体创业者提供企业级电话系统",
+      "features": [
+        "云端电话系统",
+        "商务电话线路",
+        "本地电话号码",
+        "免费电话号码",
+        "虚拟接待员",
+        "团队聊天"
+      ]
+    },
+    
+    "target_customers": [
+      "个体创业者 (SOLOPRENEURS)",
+      "小型团队 (SMALL TEAMS)",
+      "多业务经营者 (MULTIPLE BUSINESSES)"
+    ],
+    
+    "key_benefits": [
+      "无需硬件设备",
+      "无需复杂设置",
+      "获取新的美国/加拿大电话号码或携号转网",
+      "即使在国外旅行也可以发送和接收短信",
+      "最多可添加20个分机"
+    ]
+  },
+  
+  "features": {
+    "auto_attendant": {
+      "name": "自动接待员",
+      "description": "虚拟接待员引导来电，通过交互式语音响应将呼叫者转接到分机号码、用户组、语音信箱，播放音频消息或将呼叫转接到其他电话号码"
+    },
+    
+    "custom_greetings": {
+      "name": "自定义问候语",
+      "description": "从OneSuite Business应用程序录制自定义问候语或上传预录制的问候语和菜单提示。可用于主要业务号码或账户下的个人用户"
+    },
+    
+    "voicemail": {
+      "name": "语音信箱",
+      "features": [
+        "所有用户都配备语音信箱服务",
+        "可从移动应用收听语音信息",
+        "语音信箱转电子邮件功能",
+        "以.wav文件附件形式发送到指定邮箱"
+      ]
+    },
+    
+    "call_transfer": {
+      "name": "呼叫转接",
+      "description": "在通话过程中可以将呼叫转接到组织内的其他分机号码，或任何国内外的手机或座机号码",
+      "types": ["盲转", "协助转接"]
+    },
+    
+    "company_directory": {
+      "name": "公司通讯录",
+      "features": [
+        "音频目录",
+        "内部目录",
+        "用户可选择在自动接待员菜单中列出姓名和分机号"
+      ]
+    },
+    
+    "caller_id": {
+      "name": "来电显示",
+      "features": [
+        "配置外呼来电显示避免被识别为垃圾电话",
+        "始终知道客户拨打的是哪个电话号码"
+      ]
+    },
+    
+    "sms_messaging": {
+      "name": "短信功能",
+      "description": "启用SMS功能发送和接收无限短信，需支付少量订阅费",
+      "features": [
+        "发送和接收短信",
+        "接收2FA或OTP验证码",
+        "全球任何地方都可使用"
+      ]
+    },
+    
+    "number_management": {
+      "name": "号码管理",
+      "features": [
+        "选择区号添加更多电话号码",
+        "将号码分配给不同业务或分机用户",
+        "携号转网支持美国或加拿大无线/座机号码"
+      ]
+    },
+    
+    "ring_groups": {
+      "name": "振铃组",
+      "description": "可以将不同的电话号码或自动接待员菜单按键设置为振铃到单个分机或分机组（部门）"
+    },
+    
+    "call_records": {
+      "name": "通话详单",
+      "description": "所有通话记录都在管理员账户中可用，分为呼入、呼出和未接来电标签。按使用量付费，计费透明无隐藏费用"
+    }
+  },
+  
+  "platforms": {
+    "mobile_app": {
+      "name": "OSBPhone Mobile",
+      "description": "OneSuite Business移动应用，在移动设备上管理公司的商务电话、语音信箱和短信",
+      "platforms": ["Android", "iOS"],
+      "features": "像手机上的第二条或第三条线路一样工作"
+    },
+    
+    "web_app": {
+      "name": "OSBPhone Web",
+      "description": "网页版虚拟电话线路，在PC或笔记本电脑上全球使用",
+      "features": "按需付费，只为使用的部分付费"
+    }
+  },
+  
+  "pricing": {
+    "model": "按需付费 (Pay-As-You-Go)",
+    "basic_plan": {
+      "name": "基础套餐",
+      "add_ons": [
+        "$1 - 仅接收短信",
+        "$5 - 无限发送和接收短信",
+        "$2.95 - 额外电话号码、免费号码",
+        "$2.95 - WebFax服务",
+        "$5 - 额外用户/分机"
+      ]
+    },
+    
+    "characteristics": [
+      "业界首个按需付费的虚拟PBX",
+      "企业级服务质量",
+      "钱包友好的费率",
+      "透明计费，无隐藏费用"
+    ]
+  },
+  
+  "programs": {
+    "referral": {
+      "name": "SuiteTreat推荐计划",
+      "benefits": {
+        "referrer": "获得被推荐人每月费用的20%现金奖励",
+        "referee": "12个月内享受每月总费用10%的折扣"
+      },
+      "payout": "通过Paypal或Wise按月支付，可选择货币"
+    }
+  },
+  
+  "security_privacy": {
+    "encryption": "使用SSL服务器证书技术加密传输",
+    "data_storage": "客户数据存储在高度安全的服务器上",
+    "access_control": "员工只有在业务需要时才能访问客户信息",
+    "compliance": "严格的隐私政策和安全声明",
+    "cookie_policy": "使用cookie改善网站功能和用户体验"
+  },
+  
+  "support": {
+    "help_center": {
+      "categories": [
+        "系统设置",
+        "移动应用使用",
+        "网页电话使用",
+        "计费和付款",
+        "故障排除",
+        "使用技巧"
+      ]
+    },
+    
+    "contact": {
+      "note": "通过帮助中心FAQ获取支持"
+    }
+  },
+  
+  "technical_info": {
+    "setup_time": "几分钟内即可设置并开始使用",
+    "infrastructure": "云技术驱动",
+    "coverage": "全球电信资源",
+    "compatibility": {
+      "mobile": ["Android", "iOS"],
+      "web": ["Chrome浏览器推荐"],
+      "features": ["PWA支持"]
+    }
+  }
+}

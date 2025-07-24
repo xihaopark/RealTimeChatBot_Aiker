@@ -1,0 +1,24 @@
+{
+  "cursor.aiProvider": "claude-3-opus",
+  "cursor.contextWindow": 200000,
+  "cursor.temperature": 0.3,
+  "cursor.maxTokens": 4096,
+  "cursor.systemPrompt": "@workspace/docs/engineering/PROTOCOL_CODEX.md",
+  "cursor.rulesFile": "@workspace/.cursor/rules.md",
+  "cursor.indexing": {
+    "exclude": [
+      "**/node_modules/**",
+      "**/.git/**",
+      "**/logs/**",
+      "**/recordings/**",
+      "**/models/**",
+      "**/__pycache__/**"
+    ]
+  },
+  "cursor.autoContext": {
+    "alwaysInclude": [
+      "config/protocol_constants.yaml",
+      "docs/engineering/PROTOCOL_CODEX.md"
+    ]
+  }
+} 

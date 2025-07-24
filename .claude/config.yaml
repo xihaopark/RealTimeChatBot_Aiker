@@ -1,0 +1,41 @@
+project:
+  name: "Aiker RealTime Chat"
+  type: "python"
+  version: "2.2"
+
+context:
+  always_include:
+    - "docs/engineering/PROTOCOL_CODEX.md"
+    - "config/protocol_constants.yaml"
+    - "config/ai_backend.yaml"
+  
+  smart_loading:
+    - pattern: "src/local_engines/*"
+      include:
+        - "src/local_engines/base_engine.py"
+        - "ai_conversation.py"
+    - pattern: "src/adapters/*"
+      include:
+        - "src/adapters/base_adapter.py"
+        - "config/ai_backend.yaml"
+
+commands:
+  protection-check:
+    description: "Run protection checker"
+    command: "python scripts/protection_checker.py"
+    
+  test-local-engine:
+    description: "Test a local engine"
+    command: "python -m pytest tests/test_local_{engine}.py -v"
+    args:
+      engine:
+        type: "choice"
+        choices: ["stt", "tts", "llm"]
+        
+  benchmark:
+    description: "Benchmark local engine performance"
+    command: "python scripts/benchmark_local.py --engine {engine}"
+    args:
+      engine:
+        type: "choice"
+        choices: ["stt", "tts", "llm", "all"] 
